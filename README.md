@@ -1,8 +1,8 @@
-# flat-segments
+# Spot Fractionné
 
 **Trouver, près de chez soi, les bouts de chemin parfaits pour une séance de course.**
 
-`flat-segments` repère des tronçons courts exploitables pour l'entraînement
+**Spot Fractionné** (pipeline `flat-segments`) repère des tronçons courts exploitables pour l'entraînement
 autour d'une position (adresse, coordonnées GPS, point placé sur la carte ou
 position de l'appareil) :
 
