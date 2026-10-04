@@ -37,7 +37,7 @@ from flat_segments.params import WORK_CRS
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
-USER_AGENT: Final = f"flat-segments/{__version__} (+https://github.com/jsilobre/Flat-segments)"
+USER_AGENT: Final = f"flat-segments/{__version__} (+https://github.com/jsilobre/spot-fractionne)"
 GEOFABRIK_URL: Final = "https://download.geofabrik.de/europe/france/midi-pyrenees-latest.osm.pbf"
 
 # Géoplateforme WMS raster service, checked against GetCapabilities

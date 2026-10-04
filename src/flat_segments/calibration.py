@@ -30,7 +30,7 @@ from flat_segments.network import EventKind, Stroke
 from flat_segments.params import PipelineParams
 from flat_segments.profile import Profile
 
-DEFAULT_SITE_URL: Final = "https://jsilobre.github.io/Flat-segments/"
+DEFAULT_SITE_URL: Final = "https://jsilobre.github.io/spot-fractionne/"
 
 
 def _table(header: Sequence[str], rows: Iterable[Sequence[object]]) -> list[str]:

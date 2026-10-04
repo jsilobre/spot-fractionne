@@ -120,7 +120,7 @@ test("resolveIndexEntry reads live, moved and retired ids", () => {
 });
 
 test("dataUrl resolves relative and absolute addresses", () => {
-  const base = "https://jsilobre.github.io/Flat-segments/data/";
+  const base = "https://jsilobre.github.io/spot-fractionne/data/";
   assert.equal(dataUrl(base, "segments.pmtiles"), `${base}segments.pmtiles`);
   assert.equal(dataUrl(base, "ids/3f.json"), `${base}ids/3f.json`);
   const r2 = "https://pub-x.r2.dev/ids/20261002T120000Z";

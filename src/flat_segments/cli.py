@@ -602,7 +602,7 @@ def validation_sheet(
     count: Annotated[int, typer.Option(help="Number of segments to check.", min=1)] = 20,
     out: Annotated[Path, _out("Markdown sheet.")] = Path("docs/validation/pilot.md"),
     site_url: Annotated[str, typer.Option(help="Base URL of the map page.")] = (
-        "https://jsilobre.github.io/Flat-segments/"
+        "https://jsilobre.github.io/spot-fractionne/"
     ),
 ) -> None:
     """Write the field validation sheet (a representative sample of segments)."""
