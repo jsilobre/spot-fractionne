@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`flat-segments` finds short stretches for running workouts near a position: flat straight segments
+Spot Fractionné (site name; the Python package and CLI keep the name `flat-segments`) finds short stretches for running workouts near a position: flat straight segments
 (200 m / 400 m / 1 km targets) and regular climbs. An offline Python pipeline precomputes every
 segment for metropolitan France from OpenStreetMap + IGN elevation (LiDAR HD, RGE ALTI fallback);
 a static MapLibre page (`web/`, GitHub Pages) filters them in the browser. No server, no database.
