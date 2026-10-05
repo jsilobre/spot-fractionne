@@ -203,7 +203,11 @@ def export(
 def export_pmtiles(
     segments: Annotated[
         list[Path] | None,
-        typer.Argument(help="Segments GeoParquet files (default: the pilot run).", exists=True),
+        typer.Argument(
+            help="Segments GeoParquet files (default: the pilot run); the loops.parquet "
+            "next to each one is published with it.",
+            exists=True,
+        ),
     ] = None,
     out_dir: Annotated[
         Path, typer.Option(help="Published folder (segments.pmtiles, segments.json, ids/).")

@@ -80,7 +80,8 @@ Champs **internes**, présents seulement dans le GeoParquet :
 Fichiers : `data/processed/loops.parquet` (commande `loops`) et
 `data/departments/CODE/loops.parquet` (étape `loops`). GeoParquet en
 Lambert-93, une ligne par boucle. En Python : dataclass
-`flat_segments.loops.Loop`. Pas encore publiée dans les tuiles.
+`flat_segments.loops.Loop`. Publiée dans les tuiles avec le fichier de
+segments du même dossier (voir ci-dessous) ; `kind` y vaut `loop`.
 
 | Champ | Type | Unité | Description |
 |---|---|---|---|
@@ -113,7 +114,7 @@ projection Web Mercator) en deux couches.
 
 | Couche | Zooms | Propriétés |
 |---|---|---|
-| `segments` | 12 à 14 (agrandies au-delà) | tous les champs publics de la table `segments`, sans perte |
+| `segments` | 12 à 14 (agrandies au-delà) | tous les champs publics de la table `segments`, sans perte ; pour une boucle (`kind = "loop"`), `id`, `kind` et les champs de la table `loops` |
 | `overview` | 8 à 11 | `id`, `kind`, `length_m` ; segments éclaircis là où ils sont trop denses |
 
 - Les tuiles vectorielles ne connaissent ni listes ni valeurs nulles :
@@ -129,11 +130,11 @@ projection Web Mercator) en deux couches.
 |---|---|
 | `schema_version`, `generated_at`, `sample`, `attribution`, `params` | comme le membre `metadata` du GeoJSON (ci-dessous) |
 | `bounds` | emprise `[ouest, sud, est, nord]` (WGS84) |
-| `counts` | nombre de plats (`flat`) et de côtes (`climb`) |
+| `counts` | nombre de plats (`flat`), de côtes (`climb`) et de boucles (`loop`) |
 | `tiles` | fichier, nom et zooms des couches, dossier et longueur de préfixe de l'index |
 
 **`ids/XX.json`** : `{"flat-3fa2b1c9d0e4": [lon, lat], …}`, la position (point
-milieu) de chaque segment.
+milieu) de chaque segment, ou d'un point de chaque boucle.
 - Un identifiant d'une version précédente est noté `[lon, lat, cible]` :
   - `cible` est l'identifiant du segment qui le remplace, et la position est
     celle de ce segment ;

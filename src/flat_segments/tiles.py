@@ -3,7 +3,7 @@
 The web page reads three things next to each other (``web/data/``):
 
 * ``segments.pmtiles``: two layers.
-  * ``segments``: every segment with all its public properties, zooms 12 to
+  * ``segments``: every segment (and loop, ADR 0014) with all its public properties, zooms 12 to
     14. The page builds its result list from the zoom 12 tiles, so nothing
     may be dropped there.
   * ``overview``: a lighter view for zooms 8 to 11, with only ``id``,
@@ -42,11 +42,13 @@ from flat_segments.detect import Segment, SegmentKind
 from flat_segments.export import (
     COORD_DECIMALS,
     SCHEMA_VERSION,
+    Published,
     attribution_for,
-    segment_properties,
+    published_properties,
 )
 from flat_segments.geometry import Projector, make_projector
 from flat_segments.lineage import Redirect
+from flat_segments.loops import LOOP_KIND
 from flat_segments.params import WEB_CRS, WORK_CRS
 
 DETAIL_LAYER: Final = "segments"
@@ -122,10 +124,14 @@ def tippecanoe_available() -> bool:
     return True
 
 
-def tile_properties(segment: Segment) -> dict[str, Any]:
+#: Every kind of feature in the tiles.
+KINDS: Final = (*(kind.value for kind in SegmentKind), LOOP_KIND)
+
+
+def tile_properties(segment: Published) -> dict[str, Any]:
     """Public properties for a vector tile: lists as JSON, no nulls."""
     props = {}
-    for name, value in segment_properties(segment).items():
+    for name, value in published_properties(segment).items():
         if value is None:
             continue
         props[name] = json.dumps(value, separators=(",", ":")) if isinstance(value, list) else value
@@ -146,7 +152,7 @@ def index_prefix_length(n_entries: int) -> int:
 
 
 def _write_features(
-    segments: Sequence[Segment], path: Path, to_wgs84: Projector, fields: Sequence[str] | None
+    segments: Sequence[Published], path: Path, to_wgs84: Projector, fields: Sequence[str] | None
 ) -> None:
     """Newline-delimited GeoJSON features (tippecanoe reads them in parallel)."""
     with path.open("w", encoding="utf-8") as handle:
@@ -154,7 +160,10 @@ def _write_features(
 
 
 def _append_features(
-    segments: Sequence[Segment], handle: IO[str], to_wgs84: Projector, fields: Sequence[str] | None
+    segments: Sequence[Published],
+    handle: IO[str],
+    to_wgs84: Projector,
+    fields: Sequence[str] | None,
 ) -> None:
     for segment in segments:
         props = tile_properties(segment)
@@ -179,7 +188,7 @@ def _run(args: list[str]) -> None:
 
 
 def write_pmtiles(
-    segments: Sequence[Segment],
+    segments: Sequence[Published],
     path: Path,
     attribution: Sequence[str],
     to_wgs84: Projector | None = None,
@@ -300,7 +309,7 @@ def tileset_mismatches(
 
 
 def verify_chunk(
-    path: Path, segments: Sequence[Segment], to_wgs84: Projector | None = None
+    path: Path, segments: Sequence[Published], to_wgs84: Projector | None = None
 ) -> tuple[list[str], set[str]]:
     """Check the tiles around a chunk of segments (one département).
 
@@ -328,7 +337,7 @@ def verify_chunk(
     return tileset_mismatches(expected, mine), others
 
 
-def verify_pmtiles(path: Path, segments: Sequence[Segment]) -> None:
+def verify_pmtiles(path: Path, segments: Sequence[Published]) -> None:
     """Read the detail layer back at its first zoom and compare it with the segments.
 
     Raises:
@@ -347,7 +356,7 @@ def verify_pmtiles(path: Path, segments: Sequence[Segment]) -> None:
 
 
 def write_id_index(
-    segments: Sequence[Segment],
+    segments: Sequence[Published],
     directory: Path,
     to_wgs84: Projector | None = None,
     *,
@@ -377,7 +386,7 @@ def write_id_index(
 
 
 def tileset_metadata(
-    segments: Sequence[Segment],
+    segments: Sequence[Published],
     *,
     sample: bool = False,
     generated_at: datetime | None = None,
@@ -400,7 +409,7 @@ def tileset_metadata(
         bounds = [round(float(v), 5) for v in (*lonlat.min(axis=0), *lonlat.max(axis=0))]
     return _metadata(
         bounds=bounds,
-        counts={kind.value: sum(s.kind is kind for s in segments) for kind in SegmentKind},
+        counts={kind: sum(str(s.kind) == kind for s in segments) for kind in KINDS},
         attribution=list(attribution if attribution is not None else attribution_for(segments)),
         sample=sample,
         generated_at=generated_at,
@@ -484,7 +493,7 @@ class TilesetWriter:
         self._buckets: dict[str, IO[str]] = {}  # index entries by first 2 hex characters
         self.ids: set[str] = set()
         self.n_entries = 0
-        self.counts = dict.fromkeys((kind.value for kind in SegmentKind), 0)
+        self.counts = dict.fromkeys(KINDS, 0)
         self.lonlat_min = np.full(2, np.inf)
         self.lonlat_max = np.full(2, -np.inf)
         self._by_source: dict[str, Segment] = {}  # one segment per elevation source
@@ -501,7 +510,7 @@ class TilesetWriter:
         self._buckets[key].write(json.dumps([segment_id, value], separators=(",", ":")) + "\n")
         self.n_entries += 1
 
-    def add(self, segments: Sequence[Segment]) -> None:
+    def add(self, segments: Sequence[Published]) -> None:
         """Add a chunk of segments (with their final ids).
 
         Raises:
@@ -511,8 +520,9 @@ class TilesetWriter:
             if segment.id in self.ids:
                 raise ValueError(f"duplicate segment ids across the files: {segment.id}")
             self.ids.add(segment.id)
-            self.counts[segment.kind.value] += 1
-            self._by_source.setdefault(segment.elevation_source, segment)
+            self.counts[str(segment.kind)] += 1
+            if isinstance(segment, Segment):
+                self._by_source.setdefault(segment.elevation_source, segment)
             mid = self.to_wgs84(segment.coords[len(segment.coords) // 2][None, :])[0]
             self._entry(segment.id, [round(float(v), 5) for v in mid])
         if segments:
@@ -545,7 +555,7 @@ class TilesetWriter:
             **self.options,
         )
 
-    def close(self, chunks: Callable[[], Iterable[Sequence[Segment]]]) -> TilesetFiles:
+    def close(self, chunks: Callable[[], Iterable[Sequence[Published]]]) -> TilesetFiles:
         """Build and check the tiles, then write the index and the metadata.
 
         Args:
@@ -610,7 +620,7 @@ class TilesetWriter:
 
 
 def write_tileset(
-    segments: Sequence[Segment],
+    segments: Sequence[Published],
     directory: Path,
     *,
     sample: bool = False,

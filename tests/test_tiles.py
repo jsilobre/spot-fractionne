@@ -9,9 +9,11 @@ from typer.testing import CliRunner
 
 from flat_segments import cli, tiles
 from flat_segments.detect import Segment, SegmentKind
-from flat_segments.export import OSM_ATTRIBUTION, write_segments
-from flat_segments.pipeline import params_sidecar, run_publish
+from flat_segments.export import OSM_ATTRIBUTION, write_loops, write_segments
+from flat_segments.loops import Loop, SportArea, build_tracks
+from flat_segments.pipeline import loops_sibling, params_sidecar, run_publish
 from tests.test_export import sample_segments
+from tests.test_loops import stadium
 
 needs_tippecanoe = pytest.mark.skipif(
     not tiles.tippecanoe_available(), reason="tippecanoe is not installed"
@@ -57,7 +59,7 @@ def test_tileset_metadata() -> None:
     assert metadata["generated_at"] == "2026-10-01T00:00:00Z"
     assert metadata["sample"] is False
     assert metadata["attribution"][0] == OSM_ATTRIBUTION
-    assert metadata["counts"] == {"flat": 1, "climb": 0}
+    assert metadata["counts"] == {"flat": 1, "climb": 0, "loop": 0}
     west, south, east, north = metadata["bounds"]
     assert west < east
     assert south < north
@@ -122,7 +124,7 @@ def test_export_pmtiles_command_merges_departments(tmp_path: Path) -> None:
     result = CliRunner().invoke(cli.app, ["export-pmtiles", str(a), str(b), "--out-dir", str(out)])
     assert result.exit_code == 0, result.output
     metadata = json.loads((out / "segments.json").read_text())
-    assert metadata["counts"] == {"flat": 1, "climb": 1}
+    assert metadata["counts"] == {"flat": 1, "climb": 1, "loop": 0}
     assert metadata["params"] == {"x": 1}
     assert (out / "ids" / "00.json").exists()
 
@@ -157,3 +159,53 @@ def test_tileset_mismatches_spot_mixed_up_values() -> None:
     assert problems[0] == "flat-a: osm_way_ids = 'climb-d006353a8869', expected '[149966956]'"
     assert problems[1] == "unknown feature id 'climb-x'"
     assert problems[-1] == "1 segments missing"
+
+
+def labege_track(shift_m: float = 0.0) -> Loop:
+    """A 400 m running track near the Labège segments."""
+    [track] = build_tracks(
+        [
+            SportArea(
+                "way/1",
+                stadium((581_600.0 + shift_m, 6_271_600.0)),
+                {"leisure": "track", "sport": "athletics", "name": "Stade", "access": "yes"},
+            )
+        ]
+    )
+    return track
+
+
+@needs_tippecanoe
+def test_loops_are_published_with_the_segments_next_to_them(tmp_path: Path) -> None:
+    segments = labege_segments()
+    path = write_run(tmp_path / "31", segments)
+    track = labege_track()
+    write_loops([track], loops_sibling(path))
+    out = tmp_path / "web"
+    count, files, _ = run_publish([path], out)  # the tiles are read back and checked
+    assert count == len(segments) + 1
+    metadata = json.loads(files.metadata.read_text())
+    assert metadata["counts"]["loop"] == 1
+    index = json.loads((files.index_dir / f"{tiles.index_key(track.id)}.json").read_text())
+    assert track.id in index
+    props = tiles.tile_properties(track)
+    assert props["kind"] == "loop"
+    assert (props["lap_m"], props["access"], props["indoor"]) == (400, "public", False)
+    assert "opening_hours" not in props  # null
+
+
+@needs_tippecanoe
+def test_a_loop_keeps_its_published_id(tmp_path: Path) -> None:
+    out = tmp_path / "web"
+    v1 = write_run(tmp_path / "v1", labege_segments())
+    old = labege_track()
+    write_loops([old], loops_sibling(v1))
+    run_publish([v1], out)
+    v2 = write_run(tmp_path / "v2", labege_segments())
+    new = labege_track(shift_m=6.0)  # redrawn in OSM: another id
+    assert new.id != old.id
+    write_loops([new], loops_sibling(v2))
+    _, files, lineage = run_publish([v2], out, previous=out)
+    assert lineage is not None
+    index = json.loads((files.index_dir / f"{tiles.index_key(old.id)}.json").read_text())
+    assert len(index[old.id]) == 2  # a live id, not a redirect
