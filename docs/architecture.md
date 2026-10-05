@@ -222,7 +222,7 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   une tuile produite par tippecanoe en fixture ; `web/package.json` ne sert
   qu'aux tests).
 - **Liens directs** : `?id=<segment>` ouvre un segment, `?lat=…&lon=…` fixe la
-  position et `?kind=climb` affiche les côtes.
+  position, `?kind=climb` affiche les côtes et `?kind=loop` les boucles.
   - La position du segment est lue dans `data/ids/`, puis on lit les tuiles
     autour d'elle.
   - Un identifiant d'une version précédente ouvre le segment qui le remplace,

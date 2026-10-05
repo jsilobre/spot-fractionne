@@ -40,7 +40,7 @@ const FALLBACK_STYLE = {
 };
 const INITIAL_VIEW = { center: [1.535, 43.53], zoom: 13 };
 const MAX_RESULTS = 50;
-const COLORS = { flat: "#1f6fb2", climb: "#d4570f" };
+const COLORS = { flat: "#1f6fb2", climb: "#d4570f", loop: "#2a8a4a" };
 // Radius of the tiles read to open a linked segment around its indexed position.
 const LINK_RADIUS_M = 1500;
 // Pause in the typing before suggesting addresses.
@@ -61,6 +61,7 @@ const SURFACE_LABELS = {
   unknown: "inconnu",
 };
 const LIT_LABELS = { yes: "oui", partial: "en partie", no: "non", unknown: "inconnu" };
+const ACCESS_LABELS = { public: "libre", restricted: "réservé (club, école…)", unknown: "inconnu" };
 const FLAG_LABELS = {
   bridge_interpolated: "altitude interpolée sur un pont",
   tunnel_interpolated: "altitude interpolée dans un tunnel",
@@ -101,10 +102,15 @@ const fmt = (value, digits = 0) =>
 
 const formatLength = (m) => (m >= 1000 ? `${fmt(m / 1000, 2)} km` : `${fmt(m)} m`);
 
-const kindLabel = (kind) => (kind === "flat" ? "Plat" : "Côte");
+const kindLabel = (kind) => ({ flat: "Plat", climb: "Côte", loop: "Piste" })[kind] ?? kind;
+
+/** Lap of a loop: its standard length, else "about" its measured length. */
+const formatLap = (p) => (p.lap_m != null ? formatLength(p.lap_m) : `environ ${formatLength(p.length_m)}`);
 
 function titleOf(properties) {
-  return properties.name ?? `${kindLabel(properties.kind)} de ${formatLength(properties.length_m)}`;
+  const p = properties;
+  if (p.name) return p.name;
+  return `${kindLabel(p.kind)} de ${p.kind === "loop" ? formatLap(p) : formatLength(p.length_m)}`;
 }
 
 function escapeHtml(text) {
@@ -114,8 +120,40 @@ function escapeHtml(text) {
   );
 }
 
+/** Laps needed to cover `distanceM`, e.g. "2,5 tours". */
+function laps(p, distanceM) {
+  const n = distanceM / (p.lap_m ?? p.length_m);
+  return `${fmt(n, 1)} tour${n >= 2 ? "s" : ""}`;
+}
+
+function loopPopupHtml(p, distanceM) {
+  const rows = [
+    ["Tour", formatLap(p)],
+    ["Longueur mesurée", formatLength(p.length_m)],
+    ["Pour 1 km / 5 km", `${laps(p, 1000)} / ${laps(p, 5000)}`],
+    ["Accès", ACCESS_LABELS[p.access] ?? p.access],
+  ];
+  if (p.opening_hours) rows.push(["Horaires (OSM)", p.opening_hours]);
+  rows.push(["Revêtement", SURFACE_LABELS[p.surface] ?? p.surface], ["Éclairage", LIT_LABELS[p.lit] ?? p.lit]);
+  if (distanceM !== null && distanceM !== undefined) rows.push(["Distance", formatLength(distanceM)]);
+  const [type, osmId] = String(p.osm_id).split("#")[0].split("/");
+  const osmLink =
+    type && osmId
+      ? `<p class="hint">Objet OSM : <a href="https://www.openstreetmap.org/${escapeHtml(type)}/${escapeHtml(osmId)}" target="_blank" rel="noopener">${escapeHtml(osmId)}</a></p>`
+      : "";
+  const link = buildUrlSearch({ id: p.id, kind: "loop" }) || "?";
+  return `<div class="popup">
+    <h3>${escapeHtml(titleOf(p))}</h3>
+    ${p.indoor ? `<p class="hint">Piste couverte</p>` : ""}
+    <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
+    ${osmLink}
+    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette piste</a></p>
+  </div>`;
+}
+
 function popupHtml(properties, distanceM) {
   const p = properties;
+  if (p.kind === "loop") return loopPopupHtml(p, distanceM);
   const rows = [
     ["Longueur", formatLength(p.length_m)],
     ["Pente moyenne", `${fmt(p.grade_mean_pct, 1)} %`],
@@ -215,7 +253,7 @@ function addSegmentLayers() {
     url: `pmtiles://${state.archive.source.getKey()}`,
     promoteId: { [tiles.layer]: "id", [tiles.overview_layer]: "id" },
   });
-  const color = ["match", ["get", "kind"], "flat", COLORS.flat, COLORS.climb];
+  const color = ["match", ["get", "kind"], "flat", COLORS.flat, "climb", COLORS.climb, COLORS.loop];
   const selected = ["boolean", ["feature-state", "selected"], false];
   // Zoom may only appear at the top level of an interpolate expression.
   const width = (low, high, factor) => [
@@ -449,13 +487,19 @@ function renderResults() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = p.kind;
-    const grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
-    const meta = [
-      formatLength(p.length_m),
-      grade,
-      `${fmt(p.n_crossings)} traversée${p.n_crossings > 1 ? "s" : ""}`,
-      `score ${fmt(p.score)}`,
-    ];
+    let meta;
+    if (p.kind === "loop") {
+      meta = [`tour de ${formatLap(p)}`, `accès ${ACCESS_LABELS[p.access] ?? p.access}`];
+      if (p.indoor) meta.push("couverte");
+    } else {
+      const grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
+      meta = [
+        formatLength(p.length_m),
+        grade,
+        `${fmt(p.n_crossings)} traversée${p.n_crossings > 1 ? "s" : ""}`,
+        `score ${fmt(p.score)}`,
+      ];
+    }
     if (distanceM !== null) meta.unshift(`à ${formatLength(distanceM)}`);
     button.innerHTML = `<span class="result-title">${escapeHtml(titleOf(p))}</span>
       <span class="result-meta">${escapeHtml(meta.join(" · "))}</span>`;
@@ -568,13 +612,14 @@ function readControls() {
   c.maxDistanceM = Number($("max-distance").value) * 1000;
   c.noCrossing = $("no-crossing").checked;
   c.pavedOnly = $("paved-only").checked;
+  c.publicOnly = $("public-only").checked;
   state.sortBy = $("sort-by").value;
 
   $("max-local-grade-value").textContent = `${fmt(c.maxLocalGradePct, 1)} %`;
   $("mean-grade-value").textContent = `${fmt(lo, 1)} à ${fmt(hi, 1)} %`;
   $("max-distance-value").textContent = `${fmt(c.maxDistanceM / 1000, 1)} km`;
   for (const element of document.querySelectorAll("[data-kind]")) {
-    element.hidden = element.dataset.kind !== c.kind;
+    element.hidden = !element.dataset.kind.split(" ").includes(c.kind);
   }
 }
 

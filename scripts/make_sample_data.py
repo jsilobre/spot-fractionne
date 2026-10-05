@@ -1,7 +1,7 @@
 """Generate the fictitious sample dataset of the web page.
 
 Builds a synthetic network and terrain around Labège, runs the real detection
-pipeline on it and writes the tileset of ``web/data/sample/`` (flagged as
+pipeline on it, adds two running tracks, and writes the tileset of ``web/data/sample/`` (flagged as
 sample data; needs tippecanoe, ADR 0009). Nothing here comes from OSM or IGN:
 the segments are fake and must not be used to go running.
 
@@ -20,6 +20,7 @@ import numpy as np
 from flat_segments.detect import SegmentKind, detect_all
 from flat_segments.elevation import FunctionDem, sample_stroke
 from flat_segments.geometry import FloatArray
+from flat_segments.loops import SportArea, build_tracks
 from flat_segments.network import RoadClass, Way, build_strokes
 from flat_segments.params import PipelineParams
 from flat_segments.tiles import write_tileset
@@ -142,6 +143,43 @@ def network() -> list[Way]:
     ]
 
 
+def stadium(center: tuple[float, float], straight: float, radius: float) -> FloatArray:
+    """Closed outline of a running track (two straights, two bends), Lambert-93."""
+    cx, cy = center
+    points = []
+    for x0, first in ((straight / 2, -90.0), (-straight / 2, 90.0)):
+        angles = np.radians(np.linspace(first, first + 180.0, 25))
+        points += [(cx + x0 + radius * math.cos(a), cy + radius * math.sin(a)) for a in angles]
+    ring = np.array(points, dtype=np.float64) + ORIGIN
+    return np.vstack([ring, ring[:1]])
+
+
+def tracks() -> list[SportArea]:
+    """Two running tracks and their facilities (local coordinates in metres)."""
+    athletics = {"leisure": "track", "sport": "athletics", "surface": "tartan"}
+    return [
+        # A 400 m track mapped as a ring-shaped area (lanes between both rings).
+        SportArea(
+            "way/1",
+            stadium((-300, -450), 84.39, 46.0),
+            athletics,
+            stadium((-300, -450), 84.39, 36.8),
+        ),
+        SportArea(
+            "way/2",
+            stadium((-300, -450), 220.0, 110.0),
+            {"leisure": "stadium", "name": "Stade (fictif)", "access": "yes", "lit": "yes"},
+        ),
+        # A 250 m school track.
+        SportArea("way/3", stadium((1250, 300), 50.0, 23.8), athletics),
+        SportArea(
+            "way/4",
+            stadium((1250, 300), 120.0, 70.0),
+            {"amenity": "school", "name": "Collège (fictif)"},
+        ),
+    ]
+
+
 def main() -> None:
     """Run the pipeline on the synthetic network and write the sample tileset."""
     params = PipelineParams()
@@ -149,9 +187,19 @@ def main() -> None:
     dem = FunctionDem(terrain)
     z_raw = {s.id: sample_stroke(s.coords, dem, params.profile) for s in strokes}
     segments = detect_all(strokes, z_raw, params, elevation_source="synthetic")
-    write_tileset(segments, OUTPUT, sample=True, generated_at=GENERATED_AT, attribution=ATTRIBUTION)
+    loops = build_tracks(tracks())
+    write_tileset(
+        [*segments, *loops],
+        OUTPUT,
+        sample=True,
+        generated_at=GENERATED_AT,
+        attribution=ATTRIBUTION,
+    )
     n_flat = sum(s.kind is SegmentKind.FLAT for s in segments)
-    print(f"{len(strokes)} strokes -> {n_flat} flat segments, {len(segments) - n_flat} climbs")
+    print(
+        f"{len(strokes)} strokes -> {n_flat} flat segments, {len(segments) - n_flat} climbs, "
+        f"{len(loops)} tracks"
+    )
     print(f"written to {OUTPUT}")
 
 

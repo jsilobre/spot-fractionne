@@ -13,7 +13,8 @@
  ],
  "counts": {
   "flat": 8,
-  "climb": 2
+  "climb": 2,
+  "loop": 2
  },
  "tiles": {
   "url": "segments.pmtiles",

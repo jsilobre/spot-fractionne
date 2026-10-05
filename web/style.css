@@ -7,6 +7,7 @@
   --accent: #1f6fb2;
   --flat: #1f6fb2;
   --climb: #d4570f;
+  --loop: #2a8a4a;
   --warning-bg: #fff4d6;
   --warning-fg: #6b4a00;
   --error-bg: #fde3e1;
@@ -317,6 +318,10 @@ input[type="range"] {
 
 .result-list button.climb {
   border-left-color: var(--climb);
+}
+
+.result-list button.loop {
+  border-left-color: var(--loop);
 }
 
 .result-title {

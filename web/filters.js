@@ -13,7 +13,11 @@ export const DEFAULT_CRITERIA = Object.freeze({
   maxDistanceM: 5000,
   noCrossing: false,
   pavedOnly: false,
+  publicOnly: false,
 });
+
+/** Kinds of results: flat segments, climbs and loops (running tracks). */
+export const KINDS = Object.freeze(["flat", "climb", "loop"]);
 
 /**
  * Above this sinuosity (length / distance between the ends), a segment is shown
@@ -76,6 +80,8 @@ export function distanceToGeometryMeters(point, geometry) {
 export function matches(properties, criteria) {
   const p = properties;
   if (p.kind !== criteria.kind) return false;
+  // A loop is a whole track: length, crossings, surface and grades do not apply.
+  if (p.kind === "loop") return !criteria.publicOnly || p.access === "public";
   if (p.length_m < criteria.minLengthM) return false;
   if (criteria.noCrossing && p.n_crossings > 0) return false;
   if (criteria.pavedOnly && p.surface !== "paved") return false;
@@ -102,26 +108,32 @@ export function idsFilter(ids) {
  */
 export function mapFilter(criteria, pinnedId = null, ids = null) {
   const get = (key) => ["get", key];
-  const conditions = [
-    ["==", get("kind"), criteria.kind],
-    [">=", get("length_m"), criteria.minLengthM],
-  ];
-  if (criteria.noCrossing) conditions.push(["==", get("n_crossings"), 0]);
-  if (criteria.pavedOnly) conditions.push(["==", get("surface"), "paved"]);
-  if (criteria.kind === "flat") {
-    conditions.push(["<=", get("grade_max_pct"), criteria.maxLocalGradePct]);
+  const conditions = [["==", get("kind"), criteria.kind]];
+  if (criteria.kind === "loop") {
+    if (criteria.publicOnly) conditions.push(["==", get("access"), "public"]);
   } else {
-    conditions.push([">=", get("grade_mean_pct"), criteria.minMeanGradePct]);
-    conditions.push(["<=", get("grade_mean_pct"), criteria.maxMeanGradePct]);
+    conditions.push([">=", get("length_m"), criteria.minLengthM]);
+    if (criteria.noCrossing) conditions.push(["==", get("n_crossings"), 0]);
+    if (criteria.pavedOnly) conditions.push(["==", get("surface"), "paved"]);
+    if (criteria.kind === "flat") {
+      conditions.push(["<=", get("grade_max_pct"), criteria.maxLocalGradePct]);
+    } else {
+      conditions.push([">=", get("grade_mean_pct"), criteria.minMeanGradePct]);
+      conditions.push(["<=", get("grade_mean_pct"), criteria.maxMeanGradePct]);
+    }
   }
   if (ids !== null) conditions.push(idsFilter(ids));
   const filter = ["all", ...conditions];
   return pinnedId === null ? filter : ["any", ["==", get("id"), pinnedId], filter];
 }
 
-/** Filter of the overview layer (low zooms): only the kind, length and id are there. */
+/**
+ * Filter of the overview layer (low zooms): only the kind, length and id are
+ * there (all loops are shown: their access is not in that layer).
+ */
 export function overviewFilter(criteria, ids = null) {
-  const filter = ["all", ["==", ["get", "kind"], criteria.kind], [">=", ["get", "length_m"], criteria.minLengthM]];
+  const filter = ["all", ["==", ["get", "kind"], criteria.kind]];
+  if (criteria.kind !== "loop") filter.push([">=", ["get", "length_m"], criteria.minLengthM]);
   if (ids !== null) filter.push(idsFilter(ids));
   return filter;
 }
@@ -174,11 +186,12 @@ export function filterSegments(features, criteria, position = null, pinnedId = n
 }
 
 export function sortResults(results, sortBy) {
-  const byScore = (a, b) => b.feature.properties.score - a.feature.properties.score;
-  if (sortBy === "distance") {
-    return results.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity) || byScore(a, b));
-  }
-  return results.sort(byScore);
+  // Loops have no score (all tracks are equal): they count as 0.
+  const score = (r) => r.feature.properties.score ?? 0;
+  const byScore = (a, b) => score(b) - score(a);
+  const byDistance = (a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity);
+  if (sortBy === "distance") return results.sort((a, b) => byDistance(a, b) || byScore(a, b));
+  return results.sort((a, b) => byScore(a, b) || byDistance(a, b));
 }
 
 /**
@@ -216,9 +229,9 @@ export function featuresBounds(features) {
 }
 
 /**
- * Read the page state from a query string: `?id=…`, `?kind=flat|climb`,
+ * Read the page state from a query string: `?id=…`, `?kind=flat|climb|loop`,
  * `?lat=…&lon=…`. Invalid values are ignored.
- * @returns {{id: string | null, kind: "flat" | "climb" | null, position: [number, number] | null}}
+ * @returns {{id: string | null, kind: "flat" | "climb" | "loop" | null, position: [number, number] | null}}
  */
 export function parseUrlState(search) {
   const params = new URLSearchParams(search);
@@ -234,7 +247,7 @@ export function parseUrlState(search) {
     Math.abs(lon) <= 180;
   return {
     id: params.get("id") || null,
-    kind: kind === "flat" || kind === "climb" ? kind : null,
+    kind: KINDS.includes(kind) ? kind : null,
     position: hasPosition ? [lon, lat] : null,
   };
 }

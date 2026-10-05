@@ -40,8 +40,8 @@ d'athlétisme d'OSM (`loop_type = "track"`).
 - Les boucles sont publiées dans la couche `segments` des tuiles, avec leurs
   propres attributs : `export-pmtiles` prend le `loops.parquet` voisin de
   chaque fichier de segments, et le rapprochement des identifiants
-  (ADR 0012) vaut pour elles aussi. Le site les affichera dans une étape
-  suivante.
+  (ADR 0012) vaut pour elles aussi. Le site les affiche dans un troisième
+  onglet, « Boucles », triées par distance, avec un filtre « accès libre ».
 - L'étape `loops` demande l'extrait OSM complet : l'extrait pilote découpé
   ne garde que les voies.
 - Un département déjà calculé ne refait que cette étape : les paramètres de

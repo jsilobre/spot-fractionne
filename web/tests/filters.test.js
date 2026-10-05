@@ -62,6 +62,32 @@ test("flat criteria: kind, length, local grade, crossings, surface", () => {
   assert.equal(matches(feature({ surface: "gravel" }).properties, { ...c, pavedOnly: true }), false);
 });
 
+test("loop criteria: every track of the kind, or only public ones", () => {
+  const loop = { kind: "loop", length_m: 199, access: "unknown", surface: "unknown" };
+  const loops = { ...DEFAULT_CRITERIA, kind: "loop", minLengthM: 400, pavedOnly: true };
+  assert.equal(matches(loop, loops), true); // length and surface do not apply
+  assert.equal(matches(loop, { ...loops, publicOnly: true }), false);
+  assert.equal(matches({ ...loop, access: "public" }, { ...loops, publicOnly: true }), true);
+  assert.equal(matches(loop, DEFAULT_CRITERIA), false);
+  assert.equal(evaluate(overviewFilter(loops), { kind: "loop", length_m: 199 }), true);
+});
+
+test("loops have no score: sorting by score keeps them last, nearest first", () => {
+  const results = [
+    { feature: feature({ kind: "loop", score: undefined }), distanceM: 100 },
+    { feature: feature({ score: 50 }), distanceM: 300 },
+  ];
+  assert.deepEqual(
+    sortResults([...results], "score").map((r) => r.distanceM),
+    [300, 100],
+  );
+  const tracks = [800, 200, 500].map((d) => ({ feature: feature({ kind: "loop", score: undefined }), distanceM: d }));
+  assert.deepEqual(
+    sortResults(tracks, "score").map((r) => r.distanceM),
+    [200, 500, 800],
+  );
+});
+
 test("climb criteria use the mean grade range", () => {
   const c = { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 100, minMeanGradePct: 5, maxMeanGradePct: 8 };
   assert.equal(matches(feature({ kind: "climb", grade_mean_pct: 6 }).properties, c), true);
@@ -121,7 +147,8 @@ test("the sample tileset describes itself and indexes every segment", () => {
   assert.equal(metadata.tiles.minzoom, 12);
   assert.equal(metadata.bounds.length, 4);
   assert.ok(metadata.counts.flat > 0 && metadata.counts.climb > 0);
-  const total = metadata.counts.flat + metadata.counts.climb;
+  assert.ok(metadata.counts.loop > 0);
+  const total = metadata.counts.flat + metadata.counts.climb + metadata.counts.loop;
   const indexed = readdirSync(new URL("ids/", dir)).flatMap((name) =>
     Object.keys(JSON.parse(readFileSync(new URL(`ids/${name}`, dir), "utf8"))),
   );
@@ -137,6 +164,8 @@ test("URL state: parse and build are inverse, invalid values ignored", () => {
   assert.deepEqual(parseUrlState("?kind=hill&lat=95&lon=1"), { id: null, kind: null, position: null });
   assert.deepEqual(parseUrlState("?lat=43.5"), { id: null, kind: null, position: null });
   assert.deepEqual(parseUrlState(""), { id: null, kind: null, position: null });
+  assert.equal(parseUrlState("?kind=loop").kind, "loop");
+  assert.equal(buildUrlSearch({ kind: "loop" }), "?kind=loop");
 });
 
 test("segments whose ends are close are shown as loops", () => {
@@ -169,10 +198,14 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { id: "c", kind: "flat", length_m: 900, grade_max_pct: 2.5, n_crossings: 2, surface: "gravel" },
     { id: "d", kind: "climb", length_m: 300, grade_mean_pct: 2.97, n_crossings: 0, surface: "paved" },
     { id: "e", kind: "climb", length_m: 300, grade_mean_pct: 8, n_crossings: 1, surface: "unknown" },
+    { id: "f", kind: "loop", length_m: 199, access: "public", surface: "unknown" },
+    { id: "g", kind: "loop", length_m: 398, access: "unknown", surface: "paved" },
   ];
   const variants = [
     { ...DEFAULT_CRITERIA },
     { ...DEFAULT_CRITERIA, kind: "climb" },
+    { ...DEFAULT_CRITERIA, kind: "loop" },
+    { ...DEFAULT_CRITERIA, kind: "loop", publicOnly: true, noCrossing: true, pavedOnly: true, minLengthM: 1000 },
     { ...DEFAULT_CRITERIA, noCrossing: true, pavedOnly: true, maxLocalGradePct: 3, minLengthM: 100 },
     { ...DEFAULT_CRITERIA, kind: "climb", minMeanGradePct: 5, maxMeanGradePct: 10 },
   ];
