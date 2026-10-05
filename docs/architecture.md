@@ -193,12 +193,17 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
     qui couvrent le cercle de recherche, autour de la position ou, à défaut,
     du centre de la carte. La distance maximale est de 10 km, soit au plus
     4 × 4 tuiles.
-  - La **carte** ne montre que les segments de la liste, et trace le cercle
-    de recherche en pointillés. Ses filtres sont des expressions MapLibre
-    (`mapFilter`) : les critères, qui sélectionnent exactement ce que
+  - La **carte** montre en couleur vive les segments de la liste, et trace le
+    cercle de recherche en pointillés. Ses filtres sont des expressions
+    MapLibre (`mapFilter`) : les critères, qui sélectionnent exactement ce que
     sélectionne `matches`, et les identifiants de la liste, qui portent la
     limite de distance (une expression ne sait pas mesurer la distance à une
     ligne).
+  - Sous ces couches, des couches de **contexte** (`context`,
+    `overview-context`) montrent en trait fin et pâle tous les segments qui
+    satisfont les critères, au-delà du cercle, avec les mêmes filtres mais
+    sans les identifiants. Un clic sur l'un d'eux ouvre sa fiche, sans
+    distance.
 - `data/segments.json` : attribution, date, paramètres, emprise et nombres du
   jeu publié. `data/ids/XX.json` : position de chaque segment, pour les liens
   directs.
