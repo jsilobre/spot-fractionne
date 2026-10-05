@@ -33,6 +33,10 @@ MAX_LENGTH_M: Final = 5000.0
 #: Two tracks whose centroids are closer than this are the same track mapped
 #: twice (an area and its running line, or one way per lane).
 DUPLICATE_DISTANCE_M: Final = 25.0
+#: Below this compactness (``4 pi area / perimeter^2``: 1 for a circle, about
+#: 0.8 for a track), an area without inner ring is a sprint straight or a run-up
+#: lane, not a loop.
+MIN_COMPACTNESS: Final = 0.5
 #: Grid of the stable id (same as segments, docs/algorithm.md section 12).
 ID_GRID_M: Final = 10.0
 
@@ -55,11 +59,20 @@ class SportArea:
         osm_id: ``"way/123"`` or ``"relation/45"``.
         ring: ``(N, 2)`` outer ring, closed (first point repeated last).
         tags: Raw OSM tags.
+        hole: Longest inner ring, if any. A track mapped as a ring-shaped
+            area has the lanes between its outer and inner rings; the inner
+            edge is within a metre of the running line.
     """
 
     osm_id: str
     ring: FloatArray
     tags: Mapping[str, str]
+    hole: FloatArray | None = None
+
+    @property
+    def running_line(self) -> FloatArray:
+        """The ring a runner follows: the inner edge if any, else the outline."""
+        return self.hole if self.hole is not None else self.ring
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -169,6 +182,12 @@ def ring_area(ring: FloatArray) -> float:
     return float(abs(np.dot(x[:-1], y[1:]) - np.dot(x[1:], y[:-1])) / 2.0)
 
 
+def compactness(ring: FloatArray) -> float:
+    """``4 pi area / perimeter^2``: 1 for a circle, close to 0 for a thin strip."""
+    perimeter = polyline_length(ring)
+    return 4.0 * np.pi * ring_area(ring) / perimeter**2 if perimeter > 0 else 0.0
+
+
 def ring_centroid(ring: FloatArray) -> FloatArray:
     """Centroid of a closed ring (vertex mean for a degenerate one)."""
     x, y = ring[:, 0], ring[:, 1]
@@ -223,14 +242,15 @@ def _facility_of(
 def _track_loop(track: SportArea, facility: SportArea | None) -> Loop:
     tags = track.tags
     outer = facility.tags if facility is not None else {}
-    length = polyline_length(track.ring)
+    line = track.running_line
+    length = polyline_length(line)
     access = access_category(tags)
     if access == "unknown":
         access = access_category(outer)
     return Loop(
-        id=loop_id(track.ring),
+        id=loop_id(line),
         loop_type="track",
-        coords=track.ring,
+        coords=line,
         length_m=length,
         lap_m=lap_length(length),
         name=tags.get("name") or outer.get("name"),
@@ -270,10 +290,12 @@ def build_tracks(areas: Sequence[SportArea]) -> list[Loop]:
     for area in areas:
         if not is_running_track(area.tags):
             continue
-        length = polyline_length(area.ring)
-        if not MIN_LENGTH_M <= length <= MAX_LENGTH_M:
+        if area.hole is None and compactness(area.ring) < MIN_COMPACTNESS:
             continue
-        centroid = ring_centroid(area.ring)
+        line = area.running_line
+        if not MIN_LENGTH_M <= polyline_length(line) <= MAX_LENGTH_M:
+            continue
+        centroid = ring_centroid(line)
         candidates.append((_track_loop(area, _facility_of(centroid, facilities)), centroid))
     kept: list[tuple[Loop, FloatArray]] = []
     for loop, centroid in sorted(candidates, key=lambda c: (_preference(c[0]), c[0].osm_id)):

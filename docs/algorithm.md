@@ -451,14 +451,29 @@ Il faut donc un extrait complet : l'extrait pilote découpé par
 **Pistes retenues.** `leisure=track` avec un `sport` qui comprend
 `athletics` ou `running`, ou sans `sport` mais en `surface=tartan` ou
 `rubber`. Les hippodromes, circuits automobiles et vélodromes (autre `sport`)
-sont écartés, ainsi que les contours de moins de 100 m ou de plus de 5 km.
+sont écartés. Une surface sans anneau intérieur dont la compacité
+(`4π × aire / périmètre²` : 1 pour un cercle, environ 0,8 pour une piste) est
+sous 0,5 est une ligne droite de sprint ou un couloir d'élan, pas une
+boucle : elle est écartée. Les boucles de moins de 100 m ou de plus de 5 km
+aussi.
 
-**Longueur du tour.** La longueur mesurée est celle du contour (anneau
-extérieur). On la ramène au tour standard le plus proche (200, 250, 300,
-333 ou 400 m) si l'écart relatif est d'au plus 20 % (`lap_m`), sinon
-`lap_m` est nul. La tolérance est large parce qu'un contour de surface suit
-le bord extérieur des couloirs : environ 460 m pour une piste de 400 m à
-8 couloirs.
+**Ligne de course.** Une piste est le plus souvent dessinée comme une
+surface en anneau (relation multipolygone) : les couloirs sont entre
+l'anneau extérieur et l'anneau intérieur. Le bord intérieur est à moins d'un
+mètre de la ligne de course du couloir 1 ; c'est lui qu'on garde comme
+géométrie et dont on mesure la longueur. Sans anneau intérieur, on prend le
+contour.
+
+**Longueur du tour.** On ramène la longueur au tour standard le plus proche
+(200, 250, 300, 333 ou 400 m) si l'écart relatif est d'au plus 20 % (`lap_m`),
+sinon `lap_m` est nul. La tolérance reste large pour les pistes dessinées
+par leur seul contour, qui suit le bord extérieur des couloirs : environ
+460 m pour une piste de 400 m à 8 couloirs.
+
+**Essai sur la Haute-Garonne** (05/10/2026, 19 s) : 180 surfaces
+`leisure=track`, 80 pistes retenues, dont 78 sur un tour standard (29 de
+400 m, 22 de 250 m, 19 de 200 m, 6 de 333 m, 2 de 300 m). Accès : 1 public,
+27 réservées (surtout des écoles), 52 inconnues. 42 ont un nom.
 
 **Équipement englobant.** Le plus petit stade, complexe sportif, gymnase
 (`leisure=stadium | sports_centre | sports_hall`) ou établissement
