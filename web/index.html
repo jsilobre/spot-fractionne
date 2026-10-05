@@ -77,9 +77,11 @@
           <label for="kind-flat">Plats</label>
           <input type="radio" id="kind-climb" name="kind" value="climb" />
           <label for="kind-climb">Côtes</label>
+          <input type="radio" id="kind-loop" name="kind" value="loop" />
+          <label for="kind-loop">Boucles</label>
         </fieldset>
 
-        <label class="field" for="min-length">
+        <label class="field" for="min-length" data-kind="flat climb">
           <span>Longueur minimale</span>
           <select id="min-length">
             <option value="100">100 m</option>
@@ -110,8 +112,10 @@
           <input id="max-distance" type="range" min="0.5" max="10" step="0.5" value="5" />
         </label>
 
-        <label class="check"><input id="no-crossing" type="checkbox" /> Sans traversée de route</label>
-        <label class="check"><input id="paved-only" type="checkbox" /> Revêtement asphalte / béton</label>
+        <label class="check" data-kind="flat climb"><input id="no-crossing" type="checkbox" /> Sans traversée de route</label>
+        <label class="check" data-kind="flat climb"><input id="paved-only" type="checkbox" /> Revêtement asphalte / béton</label>
+        <p class="hint" data-kind="loop" hidden>Pistes d'athlétisme cartographiées dans OpenStreetMap.</p>
+        <label class="check" data-kind="loop" hidden><input id="public-only" type="checkbox" /> Accès libre seulement</label>
       </section>
 
       <section class="block results" aria-labelledby="results-title">

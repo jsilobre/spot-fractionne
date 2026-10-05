@@ -68,7 +68,7 @@ Read `docs/architecture.md` for the full component table; key ideas that span fi
   not in the repo (ADR 0011, 0013); `pages.yml` fetches it at deploy time.
 - **Front** (`web/`): `app.js` wires MapLibre + PMTiles (ES modules from a CDN via an import map,
   pinned with SRI). Pure, tested logic lives in `filters.js` (criteria, `matches`, `mapFilter`, URL
-  state `?id=`, `?lat=&lon=`, `?kind=climb`), `tiles.js` (z12 tile decoding, tiles covering the
+  state `?id=`, `?lat=&lon=`, `?kind=climb|loop`), `tiles.js` (z12 tile decoding, tiles covering the
   ≤ 10 km search circle) and `geocode.js` (IGN geocoder). The result list is built from z12 tiles;
   the map's MapLibre filter expression must select exactly what `matches` selects.
 - Design decisions are recorded as ADRs in `docs/adr/`; phase-2 reports in `docs/phase-2/`.

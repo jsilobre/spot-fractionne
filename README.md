@@ -9,9 +9,11 @@ position de l'appareil) :
 1. **Segments plats et courts** pour le fractionné et le travail d'allure :
    longueurs cibles 200 m, 400 m et 1 km (paramétrables), pente maximale faible.
 2. **Côtes** pour le travail en montée : longueur et pente moyenne cibles.
+3. **Boucles** pour enchaîner des tours sans demi-tour : pour l'instant les
+   pistes d'athlétisme d'OpenStreetMap (tour de 200 à 400 m, accès indiqué).
 
-Contrairement à Strava ou Komoot, on ne cherche ni parcours ni boucles, mais des
-**tronçons** : une ligne droite plate de 400 m sans traversée de route, ou une
+Contrairement à Strava ou Komoot, on ne cherche pas de parcours, mais des
+**tronçons** courts : une ligne droite plate de 400 m sans traversée de route, ou une
 montée régulière à 6 % sur 200 m.
 
 ## Ce qui fait un bon segment
@@ -189,7 +191,7 @@ gh release download data-latest --dir web/data && tar -xzf web/data/ids.tar.gz -
 ```
 
 Liens directs : `?id=<segment>` ouvre un segment, `?lat=…&lon=…` fixe la
-position et `?kind=climb` affiche les côtes. Le workflow *Pages* publie `web/` à
+position, `?kind=climb` affiche les côtes et `?kind=loop` les boucles. Le workflow *Pages* publie `web/` à
 chaque modification sur `main`. Il faut d'abord activer GitHub Pages dans
 *Settings → Pages → Source : GitHub Actions*.
 
