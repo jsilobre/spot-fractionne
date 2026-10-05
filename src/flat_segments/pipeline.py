@@ -21,6 +21,7 @@ from flat_segments.params import PipelineParams
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
+    from flat_segments.export import Published
     from flat_segments.lineage import Lineage
     from flat_segments.loops import Loop
     from flat_segments.tiles import TilesetFiles
@@ -38,6 +39,22 @@ class DataPaths:
     loops: Path = Path("data/processed/loops.parquet")
     geojson: Path = Path("data/processed/segments.geojson")  # for inspection
     web_data: Path = Path("web/data")  # published tiles (export-pmtiles)
+
+
+def loops_sibling(segments_path: Path) -> Path:
+    """Loops published with a segments file: ``loops.parquet`` in the same folder."""
+    return segments_path.with_name("loops.parquet")
+
+
+def read_published(segments_path: Path) -> list[Published]:
+    """Segments of a file, followed by the loops next to it (if any)."""
+    from flat_segments.export import read_loops, read_segments
+
+    items: list[Published] = list(read_segments(segments_path))
+    loops = loops_sibling(segments_path)
+    if loops.exists():
+        items += read_loops(loops)
+    return items
 
 
 def params_sidecar(segments_path: Path) -> Path:
@@ -219,6 +236,8 @@ def run_publish(
 ) -> tuple[int, TilesetFiles, Lineage | None]:
     """Publish one or more segments files (pilot, départements) as a tileset.
 
+    The loops of each file (``loops.parquet`` next to it) are published with it.
+
     The parameters recorded next to each file (``segments.params.toml``) must
     be identical: a published set says how it was produced. With
     ``previous`` (a published folder, possibly ``out_dir`` itself), the ids
@@ -238,7 +257,6 @@ def run_publish(
             share segment ids.
         TippecanoeError: If tippecanoe is missing or fails.
     """
-    from flat_segments.export import read_segments
     from flat_segments.lineage import Matcher, open_previous
     from flat_segments.tiles import TilesetWriter
 
@@ -259,7 +277,7 @@ def run_publish(
     own_ids: set[str] = set()
     try:
         for path in segments_files:
-            segments = read_segments(path)
+            segments = read_published(path)
             for segment in segments:
                 if segment.id in own_ids:
                     raise ValueError(f"duplicate segment ids across the files: {segment.id}")
@@ -279,15 +297,15 @@ def run_publish(
         writer.cleanup()
         raise
 
-    def chunks() -> Iterator[list[Segment]]:
+    def chunks() -> Iterator[list[Published]]:
         for path, ids in zip(segments_files, renamed, strict=True):
-            yield [replace(s, id=ids[s.id]) if s.id in ids else s for s in read_segments(path)]
+            yield [replace(s, id=ids[s.id]) if s.id in ids else s for s in read_published(path)]
 
     files = writer.close(chunks)
     return writer.total, files, lineage
 
 
-def _bounds(segments: Sequence[Segment]) -> tuple[float, float, float, float]:
+def _bounds(segments: Sequence[Published]) -> tuple[float, float, float, float]:
     """Lambert-93 extent of segments."""
     import numpy as np
 

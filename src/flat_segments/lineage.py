@@ -36,7 +36,7 @@ import shapely
 from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 
-from flat_segments.detect import Segment
+from flat_segments.export import Published
 from flat_segments.params import WEB_CRS, WORK_CRS
 
 #: Distance under which two lines cover the same ground, in metres.
@@ -46,7 +46,7 @@ MATCH_MIN: Final = 0.8
 #: Share of a vanished segment covered by a new one to redirect its id there.
 ALIAS_MIN: Final = 0.3
 #: A segment id: kind, 12 hexadecimal characters, optional ``-N`` suffix.
-SEGMENT_ID: Final = re.compile(r"(flat|climb)-[0-9a-f]{12}(-[0-9]+)?")
+SEGMENT_ID: Final = re.compile(r"(flat|climb|loop)-[0-9a-f]{12}(-[0-9]+)?")
 
 
 def is_segment_id(value: object) -> bool:
@@ -88,7 +88,7 @@ class PreviousVersion:
 class Lineage:
     """Result of :func:`match`: segments with their final ids, and redirects."""
 
-    segments: tuple[Segment, ...]
+    segments: tuple[Published, ...]
     redirects: Mapping[str, Redirect]
     kept: int  # segments that kept a previous id
     renamed: int  # new segments whose own id was taken
@@ -294,7 +294,9 @@ class Matcher:
         lon, lat = self.to_wgs84(np.array([_midpoint(geometry)]))[0]
         return round(float(lon), 5), round(float(lat), 5)
 
-    def add(self, current: Sequence[Segment], previous: Sequence[PreviousSegment]) -> list[Segment]:
+    def add(
+        self, current: Sequence[Published], previous: Sequence[PreviousSegment]
+    ) -> list[Published]:
         """Final ids of a chunk of segments; ``previous``: the previous segments around it."""
         geometries = [LineString(s.coords) for s in current]
         candidates = [p for p in previous if p.id in self.previous_live and p.id not in self.kept]
@@ -305,7 +307,7 @@ class Matcher:
             by_kind_prev[p.kind].append(j)
         by_kind_cur: dict[str, list[int]] = defaultdict(list)
         for i, s in enumerate(current):
-            by_kind_cur[s.kind.value].append(i)
+            by_kind_cur[str(s.kind)].append(i)
 
         for kind, cur_idx in by_kind_cur.items():
             prev_idx = by_kind_prev.get(kind, [])
@@ -376,7 +378,7 @@ class Matcher:
 
 
 def match(
-    current: Sequence[Segment],
+    current: Sequence[Published],
     previous: PreviousVersion | None,
     *,
     buffer_m: float = BUFFER_M,

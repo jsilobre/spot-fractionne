@@ -189,6 +189,7 @@ jobs:
           retention-days: 7
           path: |
             ${{ env.WORK }}/departments/${{ matrix.code }}/segments.parquet
+            ${{ env.WORK }}/departments/${{ matrix.code }}/loops.parquet
             ${{ env.WORK }}/departments/${{ matrix.code }}/segments.params.toml
             ${{ env.WORK }}/departments/${{ matrix.code }}/state.json
 

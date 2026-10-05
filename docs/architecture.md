@@ -77,7 +77,7 @@ Chaque étape est une commande de la CLI Typer `flat-segments` :
 | `detect` | strokes + profils | `data/processed/segments.parquet` | `profile.py`, `detect.py` |
 | `loops` | extrait OSM complet (pas l'extrait pilote découpé) + emprise | `data/processed/loops.parquet` (pistes d'athlétisme) | `osm.py`, `loops.py` |
 | `export` | segments | `data/processed/segments.geojson` (inspection) | `export.py` |
-| `export-pmtiles` | un ou plusieurs fichiers de segments ; avec `--previous`, le jeu déjà publié | `web/data/segments.pmtiles`, `segments.json`, `ids/` (identifiants de la version publiée conservés, [ADR 0012](adr/0012-identifiants-stables.md)) | `tiles.py` (tippecanoe), `lineage.py` |
+| `export-pmtiles` | un ou plusieurs fichiers de segments (et le `loops.parquet` voisin de chacun) ; avec `--previous`, le jeu déjà publié | `web/data/segments.pmtiles`, `segments.json`, `ids/` (identifiants de la version publiée conservés, [ADR 0012](adr/0012-identifiants-stables.md)) | `tiles.py` (tippecanoe), `lineage.py` |
 | `pipeline` | extrait découpé + MNT | les quatre sorties ci-dessus | `pipeline.py` |
 
 Le découpage en quatre étapes permet de régler les seuils de détection

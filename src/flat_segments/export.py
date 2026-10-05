@@ -39,10 +39,14 @@ SOURCE_ATTRIBUTION: Final = {
 }
 
 
-def attribution_for(segments: Sequence[Segment]) -> list[str]:
-    """Attribution lines for segments: OSM, then each elevation source used."""
+#: What the site shows: segments (flats, climbs) and loops.
+Published = Segment | Loop
+
+
+def attribution_for(segments: Sequence[Published]) -> list[str]:
+    """Attribution lines: OSM, then each elevation source used by the segments."""
     lines = [OSM_ATTRIBUTION]
-    for source in sorted({s.elevation_source for s in segments}):
+    for source in sorted({s.elevation_source for s in segments if isinstance(s, Segment)}):
         line = SOURCE_ATTRIBUTION.get(source)
         if line is not None and line not in lines:
             lines.append(line)
@@ -113,6 +117,37 @@ def segment_properties(segment: Segment) -> dict[str, Any]:
             value = round(value, ROUNDING[name]) + 0.0  # + 0.0 turns -0.0 into 0.0
         props[name] = _json_value(value.value if name == "kind" else value)
     return props
+
+
+#: Public loop fields, in export order (docs/data-model.md, table ``loops``).
+LOOP_PUBLIC_FIELDS: Final = (
+    "id",
+    "kind",
+    "loop_type",
+    "length_m",
+    "lap_m",
+    "name",
+    "surface",
+    "lit",
+    "access",
+    "opening_hours",
+    "indoor",
+    "osm_id",
+)
+
+
+def loop_properties(loop: Loop) -> dict[str, Any]:
+    """Public properties of a loop, rounded for the web."""
+    props: dict[str, Any] = {name: getattr(loop, name) for name in LOOP_PUBLIC_FIELDS}
+    props["length_m"] = round(loop.length_m, ROUNDING["length_m"])
+    if loop.lap_m is not None:
+        props["lap_m"] = round(loop.lap_m, ROUNDING["length_m"])
+    return props
+
+
+def published_properties(item: Published) -> dict[str, Any]:
+    """Public properties of a segment or a loop."""
+    return loop_properties(item) if isinstance(item, Loop) else segment_properties(item)
 
 
 def segments_to_geojson(
