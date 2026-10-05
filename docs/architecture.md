@@ -257,7 +257,7 @@ sequenceDiagram
         B->>G: recherche (suggestions)
         G-->>B: adresses et positions
     end
-    U->>B: choisit type, longueur min, pente, distance max…
+    U->>B: choisit type, longueur min, pente, distance de recherche…
     B->>S: tuiles z12 couvrant le cercle de recherche (plages d'octets)
     B->>T: decodeTile, segmentsFromTiles, filterSegments
     T-->>B: segments retenus + distance
