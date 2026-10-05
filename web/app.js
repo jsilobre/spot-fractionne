@@ -172,7 +172,9 @@ marker.on("dragend", () => {
   const { lng, lat } = marker.getLngLat();
   setPosition([lng, lat], "point déplacé");
 });
-const SEGMENT_LAYERS = ["segments", "overview"];
+const CLICK_SLACK_PX = 6;
+// Clickable layers; a click picks the topmost, so results win over context.
+const SEGMENT_LAYERS = ["segments", "overview", "context", "overview-context"];
 
 function addDataLayers() {
   styleReady = true;
@@ -189,7 +191,11 @@ function addDataLayers() {
   render();
 }
 
-/** Segment layers: full detail from zoom 12, a light overview below. */
+/**
+ * Segment layers: full detail from zoom 12, a light overview below. Under
+ * each, a faint "context" layer shows every segment meeting the criteria,
+ * beyond the search circle.
+ */
 function addSegmentLayers() {
   if (map.getSource("segments")) return;
   const tiles = state.metadata.tiles;
@@ -224,6 +230,9 @@ function addSegmentLayers() {
     });
   const detail = { minzoom: tiles.minzoom };
   const overview = { minzoom: tiles.overview_minzoom, maxzoom: tiles.minzoom };
+  const faint = ["case", selected, 1, 0.35];
+  layer("overview-context", tiles.overview_layer, { "line-color": color, "line-width": width(2, 4, 1), "line-opacity": 0.3 }, overview);
+  layer("context", tiles.layer, { "line-color": color, "line-width": width(2, 4, 1.8), "line-opacity": faint }, detail);
   layer("overview", tiles.overview_layer, { "line-color": color, "line-width": width(3, 7, 1), "line-opacity": 0.8 }, overview);
   layer("segments-casing", tiles.layer, { "line-color": "#ffffff", "line-width": width(6, 10, 1.6) }, detail);
   layer("segments", tiles.layer, { "line-color": color, "line-width": width(3, 7, 1.8) }, detail);
@@ -238,8 +247,14 @@ map.on("click", (event) => {
     return;
   }
   const layers = SEGMENT_LAYERS.filter((id) => map.getLayer(id));
-  const [hit] = layers.length ? map.queryRenderedFeatures(event.point, { layers }) : [];
-  if (hit?.layer.id === "segments") {
+  // A few pixels of slack: the context lines are thin, fingers are not.
+  const { x, y } = event.point;
+  const box = [
+    [x - CLICK_SLACK_PX, y - CLICK_SLACK_PX],
+    [x + CLICK_SLACK_PX, y + CLICK_SLACK_PX],
+  ];
+  const [hit] = layers.length ? map.queryRenderedFeatures(box, { layers }) : [];
+  if (hit?.layer.id === "segments" || hit?.layer.id === "context") {
     const feature = { type: "Feature", geometry: hit.geometry, properties: normalizeProperties(hit.properties) };
     selectSegment(hit.properties.id, event.lngLat, feature);
   } else if (hit) {
@@ -308,7 +323,8 @@ function searchCenter() {
 
 /**
  * Map filters: the criteria, and the ids of the result list, which hold the
- * distance limit (an expression cannot measure the distance to a line).
+ * distance limit (an expression cannot measure the distance to a line). The
+ * context layers take the criteria only.
  */
 function updateMapFilters() {
   if (!map.getLayer("segments")) return;
@@ -317,6 +333,8 @@ function updateMapFilters() {
   map.setFilter("segments", filter);
   map.setFilter("segments-casing", filter);
   map.setFilter("overview", overviewFilter(state.criteria, ids));
+  map.setFilter("context", mapFilter(state.criteria));
+  map.setFilter("overview-context", overviewFilter(state.criteria));
 }
 
 function applyFilters() {
