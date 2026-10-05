@@ -11,6 +11,7 @@ from flat_segments.geometry import FloatArray, polyline_length
 from flat_segments.loops import SportArea, build_tracks
 from flat_segments.osm import iter_sport_areas
 from flat_segments.params import WEB_CRS, WORK_CRS
+from flat_segments.pipeline import read_loops_from_osm
 
 STRAIGHT_M = 84.39  # straights of a standard 400 m track (lane 1)
 
@@ -184,6 +185,21 @@ def test_a_track_mapped_twice_gives_one_loop() -> None:
     assert [t.osm_id for t in sorted(tracks, key=lambda t: t.osm_id)] == ["way/2", "way/3"]
 
 
+def test_the_running_line_of_a_ring_shaped_area_is_its_inner_edge() -> None:
+    center = (575_000.0, 6_275_000.0)
+    outline, inner = stadium(center, radius=46.0), stadium(center)
+    [track] = build_tracks([SportArea("relation/1", outline, ATHLETICS, inner)])
+    np.testing.assert_array_equal(track.coords, inner)
+    assert track.lap_m == 400
+    assert track.id == loops.loop_id(inner)
+
+
+def test_thin_areas_without_inner_ring_are_sprint_straights() -> None:
+    strip = np.array([(0.0, 0.0), (120.0, 0.0), (120.0, 8.0), (0.0, 8.0), (0.0, 0.0)])
+    assert loops.compactness(strip) < loops.MIN_COMPACTNESS < loops.compactness(stadium())
+    assert not build_tracks([area("way/1", strip, **ATHLETICS)])  # 256 m, like a 250 m lap
+
+
 def test_other_areas_and_odd_lengths_are_ignored() -> None:
     assert not build_tracks(
         [
@@ -225,13 +241,15 @@ TO_WGS84 = Transformer.from_crs(WORK_CRS, WEB_CRS, always_xy=True)
 
 
 def osm_xml() -> str:
-    """A track (closed way) in a stadium (multipolygon), and a cycleway."""
+    """A track (closed way) in a stadium (multipolygon), a ring-shaped track
+    (multipolygon with an inner ring) far away, and a cycleway."""
     nodes, ways = [], []
     refs: dict[str, list[int]] = {}
     shapes = {
         "track": stadium()[:-1],
         "stadium": square((575_000.0, 6_275_000.0), 300)[:-1],
-        "far": stadium((600_000.0, 6_300_000.0))[:-1],
+        "far": stadium((600_000.0, 6_300_000.0), radius=46.0)[:-1],
+        "far_inner": stadium((600_000.0, 6_300_000.0))[:-1],
     }
     node_id = 1
     for name, ring in shapes.items():
@@ -251,10 +269,8 @@ def osm_xml() -> str:
         '<tag k="sport" v="athletics"/><tag k="surface" v="tartan"/></way>'
     )
     ways.append(f'<way id="11" version="1">{nds("stadium")}</way>')
-    ways.append(
-        f'<way id="12" version="1">{nds("far")}<tag k="leisure" v="track"/>'
-        '<tag k="sport" v="athletics"/></way>'
-    )
+    ways.append(f'<way id="12" version="1">{nds("far")}</way>')
+    ways.insert(0, f'<way id="9" version="1">{nds("far_inner")}</way>')  # ids in order
     ways.append(
         '<way id="13" version="1"><nd ref="1"/><nd ref="2"/><tag k="highway" v="footway"/></way>'
     )
@@ -262,6 +278,9 @@ def osm_xml() -> str:
         '<relation id="20" version="1"><member type="way" ref="11" role="outer"/>'
         '<tag k="type" v="multipolygon"/><tag k="leisure" v="stadium"/>'
         '<tag k="name" v="Stade municipal"/><tag k="access" v="yes"/></relation>'
+        '<relation id="21" version="1"><member type="way" ref="12" role="outer"/>'
+        '<member type="way" ref="9" role="inner"/><tag k="type" v="multipolygon"/>'
+        '<tag k="leisure" v="track"/><tag k="sport" v="athletics"/></relation>'
     )
     return (
         f'<?xml version="1.0"?><osm version="0.6">{"".join(nodes)}{"".join(ways)}{relation}</osm>'
@@ -278,7 +297,7 @@ def test_iter_sport_areas_reads_closed_ways_and_multipolygons(tmp_path: Path) ->
     path = tmp_path / "area.osm"
     path.write_text(osm_xml())
     found = {a.osm_id: a for a in iter_sport_areas(path)}
-    assert set(found) == {"way/10", "relation/20", "way/12"}
+    assert set(found) == {"way/10", "relation/20", "relation/21"}
     assert found["relation/20"].tags == {
         "leisure": "stadium",
         "name": "Stade municipal",
@@ -287,6 +306,10 @@ def test_iter_sport_areas_reads_closed_ways_and_multipolygons(tmp_path: Path) ->
     [ring] = found["way/10"].rings
     assert ring.shape[1] == 2
     assert (ring[0] == ring[-1]).all()
+    assert found["way/10"].holes == [None]
+    [hole] = found["relation/21"].holes
+    assert hole is not None
+    assert len(hole) == len(stadium())  # the inner ring, not the outer one
     near = {a.osm_id for a in iter_sport_areas(path, bbox_around(575_000.0, 6_275_000.0))}
     assert near == {"way/10", "relation/20"}
 
@@ -303,3 +326,12 @@ def test_loops_command(tmp_path: Path) -> None:
     assert "2 sports areas -> 1 tracks" in result.output
     [track] = read_loops(out)
     assert (track.name, track.access, track.lap_m) == ("Stade municipal", "public", 400)
+
+
+def test_a_ring_shaped_track_runs_along_its_inner_edge(tmp_path: Path) -> None:
+    path = tmp_path / "area.osm"
+    path.write_text(osm_xml())
+    _, [track] = read_loops_from_osm(path, bbox_around(600_000.0, 6_300_000.0))
+    assert track.osm_id == "relation/21"
+    assert track.length_m == pytest.approx(400, abs=1)  # the outline is about 458 m
+    assert track.lap_m == 400

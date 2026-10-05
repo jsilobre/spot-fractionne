@@ -293,6 +293,11 @@ def read_ways(
     return ways
 
 
+def len_of(ring: FloatArray) -> float:
+    """Length of a lon/lat ring in degrees (only to compare rings of one area)."""
+    return float(np.hypot(*np.diff(ring, axis=0).T).sum())
+
+
 class RawArea(NamedTuple):
     """An OSM area (closed way or multipolygon) as read from the file (WGS84)."""
 
@@ -300,6 +305,9 @@ class RawArea(NamedTuple):
     """``"way/123"`` or ``"relation/45"``."""
     rings: list[FloatArray]
     """Outer rings, closed."""
+    holes: list[FloatArray | None]
+    """Longest inner ring of each outer ring, if any: the inner edge of a
+    track mapped as a ring-shaped area, close to its running line."""
     tags: dict[str, str]
 
 
@@ -354,10 +362,19 @@ def iter_sport_areas(
     for obj in processor:
         if not isinstance(obj, osmium.osm.Area):
             continue
-        rings = [
-            np.array([(n.lon, n.lat) for n in ring], dtype=np.float64) for ring in obj.outer_rings()
-        ]
-        rings = [r for r in rings if len(r) >= 4]
+        rings: list[FloatArray] = []
+        holes: list[FloatArray | None] = []
+        for outer in obj.outer_rings():
+            ring = np.array([(n.lon, n.lat) for n in outer], dtype=np.float64)
+            if len(ring) < 4:
+                continue
+            inners = [
+                np.array([(n.lon, n.lat) for n in inner], dtype=np.float64)
+                for inner in obj.inner_rings(outer)
+            ]
+            inners = [r for r in inners if len(r) >= 4]
+            rings.append(ring)
+            holes.append(max(inners, key=len_of) if inners else None)
         if not rings:
             continue
         lonlat = np.vstack(rings)
@@ -370,7 +387,7 @@ def iter_sport_areas(
             continue
         tags = {key: obj.tags[key] for key in SPORT_AREA_TAGS if key in obj.tags}
         kind = "way" if obj.from_way() else "relation"
-        yield RawArea(f"{kind}/{obj.orig_id()}", rings, tags)
+        yield RawArea(f"{kind}/{obj.orig_id()}", rings, holes, tags)
 
 
 def clip_osm(src: Path, dst: Path, bbox: tuple[float, float, float, float]) -> tuple[int, int]:

@@ -85,7 +85,7 @@ Lambert-93, une ligne par boucle. En Python : dataclass
 | Champ | Type | Unité | Description |
 |---|---|---|---|
 | `id` | `str` | — | Identifiant stable `"loop-{12 hex}"`, voir [`algorithm.md` § 15](algorithm.md#15-boucles--pistes-dathlétisme) |
-| `geometry` | `LineString` | — | Anneau fermé (premier point répété à la fin) |
+| `geometry` | `LineString` | — | Anneau fermé (premier point répété à la fin) : bord intérieur d'une piste en anneau, sinon son contour |
 | `loop_type` | `str` | — | `track` (piste d'athlétisme) ; `circuit` réservé aux boucles du réseau |
 | `length_m` | `float` | m | Longueur mesurée de l'anneau |
 | `lap_m` | `float` \| `null` | m | Tour standard correspondant (200, 250, 300, 333,3 ou 400 m), `null` si aucun |

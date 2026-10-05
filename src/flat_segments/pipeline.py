@@ -84,10 +84,13 @@ def read_loops_from_osm(
     project = make_projector("EPSG:4326", WORK_CRS)
     areas = [
         SportArea(
-            raw.osm_id if len(raw.rings) == 1 else f"{raw.osm_id}#{i}", project(ring), raw.tags
+            raw.osm_id if len(raw.rings) == 1 else f"{raw.osm_id}#{i}",
+            project(ring),
+            raw.tags,
+            project(hole) if hole is not None else None,
         )
         for raw in iter_sport_areas(pbf, bbox, area)
-        for i, ring in enumerate(raw.rings)
+        for i, (ring, hole) in enumerate(zip(raw.rings, raw.holes, strict=True))
     ]
     return len(areas), build_tracks(areas)
 
