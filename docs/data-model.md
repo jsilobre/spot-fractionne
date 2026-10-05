@@ -75,6 +75,28 @@ Champs **internes**, présents seulement dans le GeoParquet :
   calcule.
 - **Rang** : il dépend des filtres choisis ; le front trie.
 
+## Table `loops`
+
+Fichiers : `data/processed/loops.parquet` (commande `loops`) et
+`data/departments/CODE/loops.parquet` (étape `loops`). GeoParquet en
+Lambert-93, une ligne par boucle. En Python : dataclass
+`flat_segments.loops.Loop`. Pas encore publiée dans les tuiles.
+
+| Champ | Type | Unité | Description |
+|---|---|---|---|
+| `id` | `str` | — | Identifiant stable `"loop-{12 hex}"`, voir [`algorithm.md` § 15](algorithm.md#15-boucles--pistes-dathlétisme) |
+| `geometry` | `LineString` | — | Anneau fermé (premier point répété à la fin) |
+| `loop_type` | `str` | — | `track` (piste d'athlétisme) ; `circuit` réservé aux boucles du réseau |
+| `length_m` | `float` | m | Longueur mesurée de l'anneau |
+| `lap_m` | `float` \| `null` | m | Tour standard correspondant (200, 250, 300, 333,3 ou 400 m), `null` si aucun |
+| `name` | `str` \| `null` | — | Nom de la piste, sinon de l'équipement qui l'entoure |
+| `surface` | `str` | — | Revêtement, mêmes valeurs que pour `segments` |
+| `lit` | `str` | — | Éclairage : `yes`, `no`, `unknown` |
+| `access` | `str` | — | `public`, `restricted`, `unknown` |
+| `opening_hours` | `str` \| `null` | — | Tag OSM `opening_hours`, brut |
+| `indoor` | `bool` | — | Piste couverte |
+| `osm_id` | `str` | — | Objet OSM de la piste : `way/123` ou `relation/45` |
+
 ## Publication en tuiles vectorielles (site)
 
 Depuis l'[étape 2.2](phase-2/2.2-tuiles.md), le site lit trois éléments dans

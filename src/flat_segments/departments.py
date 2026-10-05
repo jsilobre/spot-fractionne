@@ -13,7 +13,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Protocol
 from urllib.parse import urlencode
 
 import numpy as np
@@ -21,9 +21,8 @@ import shapely
 from shapely.geometry import LineString, shape
 from shapely.geometry.base import BaseGeometry
 
-from flat_segments.detect import Segment
 from flat_segments.download import DownloadError, Opener, fetch_bytes, urlopen
-from flat_segments.geometry import make_projector
+from flat_segments.geometry import FloatArray, make_projector
 from flat_segments.params import WEB_CRS, WORK_CRS
 
 DEPARTMENTS_WFS_URL: Final = "https://data.geopf.fr/wfs/ows"
@@ -145,8 +144,17 @@ def load_departments(path: Path, codes: Sequence[str]) -> list[Department]:
     return departments
 
 
-def owned_segments(segments: Sequence[Segment], outline_l93: BaseGeometry) -> list[Segment]:
-    """Segments whose midpoint lies in the outline (Lambert-93).
+class HasCoords(Protocol):
+    """A line in Lambert-93: a segment or a loop."""
+
+    @property
+    def coords(self) -> FloatArray:
+        """``(N, 2)`` vertices."""
+        ...
+
+
+def owned_segments[T: HasCoords](segments: Sequence[T], outline_l93: BaseGeometry) -> list[T]:
+    """Segments (or loops) whose midpoint lies in the outline (Lambert-93).
 
     Each segment belongs to exactly one département, even when it crosses the
     border: it is kept whole by the département that contains its midpoint.

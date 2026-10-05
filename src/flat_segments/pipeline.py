@@ -19,7 +19,10 @@ from flat_segments.detect import Segment, detect_all
 from flat_segments.params import PipelineParams
 
 if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
+
     from flat_segments.lineage import Lineage
+    from flat_segments.loops import Loop
     from flat_segments.tiles import TilesetFiles
 
 
@@ -32,6 +35,7 @@ class DataPaths:
     strokes: Path = Path("data/interim/strokes.parquet")
     profiles: Path = Path("data/interim/profiles.parquet")
     segments: Path = Path("data/processed/segments.parquet")
+    loops: Path = Path("data/processed/loops.parquet")
     geojson: Path = Path("data/processed/segments.geojson")  # for inspection
     web_data: Path = Path("web/data")  # published tiles (export-pmtiles)
 
@@ -60,6 +64,47 @@ def run_extract(
     strokes = build_strokes(ways, params.network)
     write_strokes(strokes, out)
     return len(ways), len(strokes)
+
+
+def read_loops_from_osm(
+    pbf: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> tuple[int, list[Loop]]:
+    """Read the OSM sports areas around ``bbox`` or ``area`` and build the loops.
+
+    Returns:
+        ``(number of areas read, loops)``.
+    """
+    from flat_segments.geometry import make_projector
+    from flat_segments.loops import SportArea, build_tracks
+    from flat_segments.osm import iter_sport_areas
+    from flat_segments.params import WORK_CRS
+
+    project = make_projector("EPSG:4326", WORK_CRS)
+    areas = [
+        SportArea(
+            raw.osm_id if len(raw.rings) == 1 else f"{raw.osm_id}#{i}", project(ring), raw.tags
+        )
+        for raw in iter_sport_areas(pbf, bbox, area)
+        for i, ring in enumerate(raw.rings)
+    ]
+    return len(areas), build_tracks(areas)
+
+
+def run_loops(
+    pbf: Path, bbox: tuple[float, float, float, float] | None, out: Path
+) -> tuple[int, int]:
+    """Find the running tracks of an OSM extract (with all its tags, not a clipped one).
+
+    Returns:
+        ``(number of sports areas read, number of loops)``.
+    """
+    from flat_segments.export import write_loops
+
+    n_areas, loops = read_loops_from_osm(pbf, bbox)
+    write_loops(loops, out)
+    return n_areas, len(loops)
 
 
 def run_elevation(

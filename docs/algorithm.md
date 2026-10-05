@@ -432,3 +432,62 @@ faut relancer `pipeline` avec `--set`.
   pris en compte au prototype.
 - **Pente locale sur 20 m** : une marche ou un dos-d'âne très court est lissé
   et n'apparaît pas.
+
+## 15. Boucles : pistes d'athlétisme
+
+Les boucles forment une troisième catégorie (`kind = "loop"`), à côté des
+plats et des côtes ([ADR 0014](adr/0014-categorie-boucles.md)). La première
+source est la piste d'athlétisme cartographiée dans OSM. Elle ne passe ni par
+les strokes ni par le MNT : une piste est plate par construction, et on la
+garde entière (module `loops.py`, commande `loops`, étape `loops` d'un
+département).
+
+**Lecture.** Les surfaces OSM (voies fermées et relations multipolygones,
+assemblées par pyosmium) qui portent une clé `leisure` ou `amenity`. La
+lecture des voies (§ 1) ne les voit pas, puisqu'elle ne lit que `highway=*`.
+Il faut donc un extrait complet : l'extrait pilote découpé par
+`download-osm` ne garde que les voies.
+
+**Pistes retenues.** `leisure=track` avec un `sport` qui comprend
+`athletics` ou `running`, ou sans `sport` mais en `surface=tartan` ou
+`rubber`. Les hippodromes, circuits automobiles et vélodromes (autre `sport`)
+sont écartés, ainsi que les contours de moins de 100 m ou de plus de 5 km.
+
+**Longueur du tour.** La longueur mesurée est celle du contour (anneau
+extérieur). On la ramène au tour standard le plus proche (200, 250, 300,
+333 ou 400 m) si l'écart relatif est d'au plus 20 % (`lap_m`), sinon
+`lap_m` est nul. La tolérance est large parce qu'un contour de surface suit
+le bord extérieur des couloirs : environ 460 m pour une piste de 400 m à
+8 couloirs.
+
+**Équipement englobant.** Le plus petit stade, complexe sportif, gymnase
+(`leisure=stadium | sports_centre | sports_hall`) ou établissement
+(`amenity=school | college | university`) qui contient le centroïde de la
+piste lui prête son nom, son éclairage et ses horaires quand la piste n'en a
+pas.
+
+**Accès.** `foot`, puis `access`, de la piste, puis de l'équipement :
+`public` (`yes`, `permissive`, `designated`, `public`), `restricted` (`no`,
+`private`, `customers`, `members`, `permit`), sinon `unknown`. Une école ou
+un collège sans tag d'accès est `restricted`.
+
+**Piste couverte** (`indoor`). `indoor=yes`, `covered=yes` ou `building=*`
+sur la piste, ou piste dans un gymnase (`leisure=sports_hall`).
+
+**Doublons.** Une même piste est parfois dessinée deux fois (la surface et la
+ligne de course, ou un couloir par voie). Deux pistes dont les centroïdes
+sont à moins de 25 m n'en font qu'une : on garde celle qui correspond à un
+tour standard, et parmi elles la plus proche de sa longueur standard.
+
+**Identifiant.** `"loop-{12 hex}"`, empreinte du centroïde arrondi à 10 m et
+de la longueur arrondie à 10 m. Une boucle n'a pas de point de départ : les
+deux extrémités qu'utilise l'identifiant d'un segment (§ 12) seraient
+confondues. Le centroïde ne dépend ni du point de départ ni du sens.
+
+**Pas de score.** Toutes les pistes se valent ; le site les trie par
+distance.
+
+Ces seuils sont des constantes de `loops.py`, pas des paramètres de
+détection : ils décrivent le balisage OSM plutôt qu'un réglage, et les
+ajouter à `PipelineParams` changerait les paramètres enregistrés de tous les
+départements déjà calculés.

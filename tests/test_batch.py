@@ -13,10 +13,11 @@ from flat_segments import batch, cli, download
 from flat_segments.config import load_params
 from flat_segments.departments import load_department
 from flat_segments.detect import SegmentKind
-from flat_segments.export import read_segments
+from flat_segments.export import read_loops, read_segments
 from flat_segments.params import WEB_CRS, WORK_CRS, PipelineParams
 from tests.test_departments import collection
 from tests.test_download import FakeWeb
+from tests.test_loops import stadium
 
 # A small "département" east of Labège, and three cycleways of 2 km:
 # A inside it, B in the 2 km margin north of it, C far away.
@@ -170,6 +171,35 @@ def test_departments_command_reports_failures_and_continues(
     args = ["--pbf", str(pbf), "--departments-file", str(outlines), "--root", str(tmp_path)]
     result = CliRunner().invoke(cli.app, ["departments", "99", "31", *args])
     assert result.exit_code == 1
-    assert "| 99 | | | | | | | error: KeyError" in result.output
+    assert "| 99 | | | | | | | | error: KeyError" in result.output
     assert "| 31 Test |" in result.output
     assert (tmp_path / "31" / "segments.parquet").exists()
+
+
+def test_department_keeps_the_tracks_whose_midpoint_is_inside(
+    inputs: tuple[Path, Path], tmp_path: Path
+) -> None:
+    to_l93 = Transformer.from_crs(WEB_CRS, WORK_CRS, always_xy=True)
+    to_wgs84 = Transformer.from_crs(WORK_CRS, WEB_CRS, always_xy=True)
+    nodes, ways = [], []
+    for way_id, lat in ((50, 43.525), (51, 43.546)):  # inside, then in the margin
+        center = to_l93.transform(1.53, lat)
+        ring = stadium(center)[:-1]
+        refs = []
+        for i, (x, y) in enumerate(ring):
+            lon, node_lat = to_wgs84.transform(x, y)
+            nodes.append(f'<node id="{way_id * 1000 + i}" lat="{node_lat:.7f}" lon="{lon:.7f}"/>')
+            refs.append(f'<nd ref="{way_id * 1000 + i}"/>')
+        refs.append(refs[0])
+        ways.append(
+            f'<way id="{way_id}">{"".join(refs)}'
+            '<tag k="leisure" v="track"/><tag k="sport" v="athletics"/></way>'
+        )
+    pbf, outlines = inputs
+    xml = osm_xml().replace("</osm>", f"{''.join(nodes)}{''.join(ways)}</osm>")
+    pbf.write_text(xml)
+    state = run((pbf, outlines), tmp_path / "out", FakeWeb({download.WMS_URL: gentle_wms}))
+    loops = state["steps"]["loops"]
+    assert (loops["areas"], loops["tracks"]) == (2, 1)
+    [track] = read_loops(batch.department_paths(tmp_path / "out" / "31").loops)
+    assert track.osm_id == "way/50"

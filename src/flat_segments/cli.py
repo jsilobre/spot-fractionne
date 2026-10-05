@@ -171,6 +171,24 @@ def detect(
 
 
 @app.command()
+def loops(
+    pbf: Annotated[
+        Path,
+        typer.Option(
+            help="OSM extract with all its tags (regional; the clipped pilot file only has ways).",
+            exists=True,
+            dir_okay=False,
+        ),
+    ],
+    bbox: BboxOpt = DEFAULT_BBOX,
+    out: Annotated[Path, _out("Output loops GeoParquet.")] = PATHS.loops,
+) -> None:
+    """Find the running tracks (loops) mapped in OSM."""
+    n_areas, n_loops = steps.run_loops(pbf, parse_bbox(bbox), out)
+    typer.echo(f"{n_areas} sports areas -> {n_loops} tracks -> {out}")
+
+
+@app.command()
 def export(
     segments: SegmentsIn = PATHS.segments,
     out: GeojsonOut = PATHS.geojson,
@@ -388,7 +406,7 @@ def department(
     config: ConfigOpt = None,
     overrides: SetOpt = None,
 ) -> None:
-    """Process one département (resumable): strokes, DEM, profiles, segments."""
+    """Process one département (resumable): strokes, DEM, profiles, segments, loops."""
     departments([code], pbf, departments_file, root, keep_dem, force, config, overrides)
 
 

@@ -293,6 +293,86 @@ def read_ways(
     return ways
 
 
+class RawArea(NamedTuple):
+    """An OSM area (closed way or multipolygon) as read from the file (WGS84)."""
+
+    osm_id: str
+    """``"way/123"`` or ``"relation/45"``."""
+    rings: list[FloatArray]
+    """Outer rings, closed."""
+    tags: dict[str, str]
+
+
+#: Tag keys of the areas read by :func:`iter_sport_areas`.
+SPORT_AREA_KEYS: Final = ("leisure", "amenity")
+#: Tags kept on those areas (everything ``loops.py`` looks at).
+SPORT_AREA_TAGS: Final = (
+    "leisure",
+    "amenity",
+    "sport",
+    "surface",
+    "lit",
+    "access",
+    "foot",
+    "name",
+    "opening_hours",
+    "indoor",
+    "covered",
+    "building",
+)
+
+
+def iter_sport_areas(
+    path: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> Iterator[RawArea]:
+    """Stream the areas with a ``leisure`` or ``amenity`` tag.
+
+    Closed ways and multipolygon relations alike (pyosmium assembles them).
+    Filtering them further (tracks, sports facilities) is up to ``loops.py``.
+
+    Args:
+        path: ``.osm.pbf`` or ``.osm`` file.
+        bbox: WGS84 ``(min_lon, min_lat, max_lon, max_lat)``; areas with at
+            least one node inside are kept.
+        area: WGS84 polygon; areas with at least one node inside are kept.
+    """
+    import osmium
+    import shapely
+
+    if area is not None:
+        shapely.prepare(area)
+        area_bbox = area.bounds
+
+    processor = (
+        osmium.FileProcessor(str(path))
+        .with_areas(osmium.filter.KeyFilter(*SPORT_AREA_KEYS))
+        .with_filter(osmium.filter.EntityFilter(osmium.osm.AREA))
+        .with_filter(osmium.filter.KeyFilter(*SPORT_AREA_KEYS))
+    )
+    for obj in processor:
+        if not isinstance(obj, osmium.osm.Area):
+            continue
+        rings = [
+            np.array([(n.lon, n.lat) for n in ring], dtype=np.float64) for ring in obj.outer_rings()
+        ]
+        rings = [r for r in rings if len(r) >= 4]
+        if not rings:
+            continue
+        lonlat = np.vstack(rings)
+        if bbox is not None and not _in_bbox(lonlat, bbox):
+            continue
+        if area is not None and not (
+            _in_bbox(lonlat, area_bbox)
+            and shapely.contains_xy(area, lonlat[:, 0], lonlat[:, 1]).any()
+        ):
+            continue
+        tags = {key: obj.tags[key] for key in SPORT_AREA_TAGS if key in obj.tags}
+        kind = "way" if obj.from_way() else "relation"
+        yield RawArea(f"{kind}/{obj.orig_id()}", rings, tags)
+
+
 def clip_osm(src: Path, dst: Path, bbox: tuple[float, float, float, float]) -> tuple[int, int]:
     """Write the relevant ways touching ``bbox``, and their nodes, to a new file.
 

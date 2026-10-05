@@ -2,7 +2,8 @@
 
 * ``strokes``  -> GeoParquet (Lambert-93), ``parts`` / ``events`` as JSON text;
 * ``profiles`` -> Parquet, one ``list<float64>`` of raw elevations per stroke;
-* ``segments`` -> GeoParquet (Lambert-93) and GeoJSON (WGS84, public fields).
+* ``segments`` -> GeoParquet (Lambert-93) and GeoJSON (WGS84, public fields);
+* ``loops``    -> GeoParquet (Lambert-93).
 
 Schemas are documented in docs/data-model.md.
 """
@@ -23,6 +24,7 @@ import numpy as np
 
 from flat_segments.detect import Segment, SegmentKind
 from flat_segments.geometry import FloatArray, Projector, make_projector
+from flat_segments.loops import Loop
 from flat_segments.network import EventKind, RoadClass, Stroke, StrokeEvent, StrokePart
 from flat_segments.params import WEB_CRS, WORK_CRS
 
@@ -217,6 +219,56 @@ def _from_parquet(value: Any) -> Any:
     if isinstance(value, float) and math.isnan(value):
         return None
     return value
+
+
+# --- GeoParquet: loops -----------------------------------------------------
+
+#: Loop fields, in storage order (docs/data-model.md, table ``loops``).
+LOOP_FIELDS: Final = (
+    "id",
+    "loop_type",
+    "length_m",
+    "lap_m",
+    "name",
+    "surface",
+    "lit",
+    "access",
+    "opening_hours",
+    "indoor",
+    "osm_id",
+)
+
+
+def write_loops(loops: Sequence[Loop], path: Path) -> None:
+    """Write loops to GeoParquet (Lambert-93), as closed LineStrings."""
+    import geopandas as gpd
+    from shapely import LineString
+
+    rows = [{name: getattr(loop, name) for name in LOOP_FIELDS} for loop in loops]
+    frame = gpd.GeoDataFrame(
+        rows,
+        columns=list(LOOP_FIELDS),
+        geometry=[LineString(x.coords) for x in loops],
+        crs=WORK_CRS,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_parquet(path)
+
+
+def read_loops(path: Path) -> list[Loop]:
+    """Read loops written by :func:`write_loops`."""
+    import geopandas as gpd
+
+    frame = gpd.read_parquet(path)
+    return [
+        Loop(
+            coords=np.asarray(geom.coords, dtype=np.float64),
+            **{k: _from_parquet(v) for k, v in record.items()},
+        )
+        for record, geom in zip(
+            frame.drop(columns="geometry").to_dict("records"), frame.geometry, strict=True
+        )
+    ]
 
 
 # --- GeoParquet: strokes ----------------------------------------------------
