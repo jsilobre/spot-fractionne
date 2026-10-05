@@ -193,6 +193,19 @@ button[aria-pressed="true"] {
   color: #ffffff;
 }
 
+.search-here {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+  font-weight: 600;
+}
+
 .position-marker {
   width: 14px;
   height: 14px;
