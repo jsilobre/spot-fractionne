@@ -75,6 +75,7 @@ Chaque étape est une commande de la CLI Typer `flat-segments` :
 | `extract` | extrait OSM `.osm.pbf` + emprise | `data/interim/strokes.parquet` | `osm.py`, `network.py` |
 | `elevation` | strokes + MNT (GeoTIFF/VRT en Lambert-93) | `data/interim/profiles.parquet` | `elevation.py` |
 | `detect` | strokes + profils | `data/processed/segments.parquet` | `profile.py`, `detect.py` |
+| `loops` | extrait OSM complet (pas l'extrait pilote découpé) + emprise | `data/processed/loops.parquet` (pistes d'athlétisme) | `osm.py`, `loops.py` |
 | `export` | segments | `data/processed/segments.geojson` (inspection) | `export.py` |
 | `export-pmtiles` | un ou plusieurs fichiers de segments ; avec `--previous`, le jeu déjà publié | `web/data/segments.pmtiles`, `segments.json`, `ids/` (identifiants de la version publiée conservés, [ADR 0012](adr/0012-identifiants-stables.md)) | `tiles.py` (tippecanoe), `lineage.py` |
 | `pipeline` | extrait découpé + MNT | les quatre sorties ci-dessus | `pipeline.py` |
@@ -87,7 +88,7 @@ Le découpage en quatre étapes permet de régler les seuils de détection
 | Commande | Entrée | Sortie | Modules |
 |---|---|---|---|
 | `download-departments` | WFS de la Géoplateforme (Admin Express) | `data/raw/departements.geojson` | `departments.py` |
-| `department CODE` | extrait OSM régional + contours | `data/departments/CODE/` : `strokes.parquet`, `profiles.parquet`, `segments.parquet`, `state.json` | `batch.py`, `departments.py` |
+| `department CODE` | extrait OSM régional + contours | `data/departments/CODE/` : `strokes.parquet`, `profiles.parquet`, `segments.parquet`, `loops.parquet`, `state.json` | `batch.py`, `departments.py` |
 | `departments CODE…` | idem, plusieurs départements | idem, plus un récapitulatif | `batch.py` |
 | `renumber-osm PBF OUT` | extrait OSM | copie dont les nœuds sont numérotés à partir de 1, voies inchangées (mémoire d'osmium pour `cut-osm`) | `osm_extracts.py` (osmium) |
 | `cut-osm PBF [CODE…]` | extrait OSM national + contours | `data/osm/CODE.osm.pbf` : un extrait par département (contour élargi, voies entières), par lots | `osm_extracts.py` (osmium) |
@@ -124,15 +125,16 @@ Les modules :
 | `params.py` | Paramètres de l'algorithme (dataclasses figées, invariants vérifiés) avec leurs valeurs par défaut | pur |
 | `config.py` | Paramètres en TOML : lecture, écriture, surcharges `cle=valeur` | pur + E/S |
 | `geometry.py` | Longueurs, rééchantillonnage, sous-polyligne, sinuosité, caps, distances point-polyligne, id stable | pur |
-| `osm.py` | Classement des voies selon leurs tags OSM ; lecture du PBF (pyosmium) et reprojection | pur + E/S |
+| `osm.py` | Classement des voies selon leurs tags OSM ; lecture du PBF (pyosmium) et reprojection ; lecture des surfaces sportives | pur + E/S |
 | `network.py` | Graphe des voies, chaînage en *strokes* (polylignes continues), événements (traversées, carrefours) | pur |
 | `elevation.py` | Échantillonnage du MNT le long des strokes (interpolation bilinéaire), accès raster | pur + E/S |
 | `profile.py` | Profil en long : bouche-trous, interpolation sous ponts et tunnels, lissage, pente locale, D+/D- | pur |
 | `detect.py` | Fenêtre glissante, fusion en tronçons maximaux, attributs, score, déduplication | pur |
+| `loops.py` | Boucles : pistes d'athlétisme retenues, tour standard, accès, doublons, id stable ([ADR 0014](adr/0014-categorie-boucles.md)) | pur |
 | `export.py` | Lecture/écriture GeoParquet, export GeoJSON (WGS84) | E/S |
 | `download.py` | Téléchargements : extrait OSM (MD5), dalles MNT par WMS, assemblage en VRT | E/S |
-| `pipeline.py` | Les quatre étapes sous forme de fonctions, partagées par les commandes | E/S |
-| `departments.py` | Contours des départements (Admin Express), règle du milieu pour rattacher un segment | pur + E/S |
+| `pipeline.py` | Les quatre étapes, et la lecture des boucles, sous forme de fonctions partagées par les commandes | E/S |
+| `departments.py` | Contours des départements (Admin Express), règle du milieu pour rattacher un segment ou une boucle | pur + E/S |
 | `batch.py` | Production par département : étapes avec reprise, état, récapitulatif | E/S |
 | `osm_extracts.py` | Découpe d'un extrait OSM national par département (osmium) | E/S |
 | `tiles.py` | Publication en tuiles vectorielles (tippecanoe, tile-join), métadonnées, index des identifiants | E/S |

@@ -20,6 +20,7 @@ ADR NNNN ». Les corrections mineures (précision, lien) se font sur place.
 | [0011](0011-production-github-actions.md) | Production sur GitHub Actions, données publiées hors de Git | Acceptée |
 | [0012](0012-identifiants-stables.md) | Identifiants conservés d'une version publiée à l'autre | Acceptée |
 | [0013](0013-donnees-sur-r2.md) | Données publiées sur Cloudflare R2 | Acceptée |
+| [0014](0014-categorie-boucles.md) | Catégorie Boucles, en commençant par les pistes d'athlétisme | Acceptée |
 
 ## Gabarit
 

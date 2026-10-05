@@ -1,13 +1,15 @@
 """Batch production by département (phase 2.1, docs/phase-2/2.1-departement.md).
 
-A département is processed in four resumable steps, on its outline grown by
+A département is processed in five resumable steps, on its outline grown by
 a margin (:data:`~flat_segments.departments.BORDER_MARGIN_M`):
 
 1. ``strokes``: ways of a regional OSM extract inside the grown outline;
 2. ``dem``: DEM tiles touching the grown outline (one national 4 km grid);
 3. ``profiles``: elevation sampled along the strokes (the DEM can then go);
 4. ``segments``: detection, then the segments whose midpoint lies in the
-   département itself.
+   département itself;
+5. ``loops``: running tracks mapped in OSM (no elevation needed), kept the
+   same way.
 
 Outputs go to ``<root>/<code>/``. ``state.json`` records each finished step
 (duration, counts) and the parameters used: a new run resumes after the last
@@ -45,7 +47,7 @@ from flat_segments.download import (
 )
 from flat_segments.params import WEB_CRS, WORK_CRS, PipelineParams
 
-STEPS: Final = ("strokes", "dem", "profiles", "segments")
+STEPS: Final = ("strokes", "dem", "profiles", "segments", "loops")
 
 
 class StateError(RuntimeError):
@@ -62,6 +64,7 @@ class DepartmentPaths:
     dem: Path
     profiles: Path
     segments: Path
+    loops: Path
     params: Path
     state: Path
 
@@ -75,6 +78,7 @@ def department_paths(root: Path) -> DepartmentPaths:
         dem=root / "dem" / "dem.vrt",
         profiles=root / "profiles.parquet",
         segments=root / "segments.parquet",
+        loops=root / "loops.parquet",
         params=root / "segments.params.toml",
         state=root / "state.json",
     )
@@ -142,12 +146,13 @@ def run_department(
     from flat_segments.export import (
         read_profiles,
         read_strokes,
+        write_loops,
         write_segments,
         write_strokes,
     )
     from flat_segments.network import build_strokes
     from flat_segments.osm import read_ways
-    from flat_segments.pipeline import run_elevation
+    from flat_segments.pipeline import read_loops_from_osm, run_elevation
 
     department: Department = load_department(departments_file, code)
     paths = department_paths(root / code)
@@ -162,6 +167,7 @@ def run_department(
         state = {"code": code, "name": department.name, "params": params_toml, "steps": {}}
     steps: dict[str, Any] = state["steps"]
     area_l93 = department.work_area_l93(margin_m)
+    area_wgs84 = transform_geometry(area_l93, WORK_CRS, WEB_CRS)
 
     def finish(step: str, start: float, **counts: Any) -> None:
         steps[step] = {"seconds": round(time.monotonic() - start, 1), **counts}
@@ -170,7 +176,6 @@ def run_department(
 
     if "strokes" not in steps:
         start = time.monotonic()
-        area_wgs84 = transform_geometry(area_l93, WORK_CRS, WEB_CRS)
         ways = read_ways(pbf, area=area_wgs84)
         strokes = build_strokes(ways, params.network)
         write_strokes(strokes, paths.strokes)
@@ -244,18 +249,25 @@ def run_department(
             climbs=sum(s.kind is SegmentKind.CLIMB for s in kept),
             km=round(sum(s.length_m for s in kept) / 1000, 1),
         )
+
+    if "loops" not in steps:
+        start = time.monotonic()
+        n_areas, loops = read_loops_from_osm(pbf, area=area_wgs84)
+        owned = owned_segments(loops, department.outline_l93())
+        write_loops(owned, paths.loops)
+        finish("loops", start, areas=n_areas, tracks=len(owned))
     return state
 
 
 def summary_table(states: dict[str, dict[str, Any] | str]) -> str:
     """Markdown table of a batch: duration and counts, or the error."""
     lines = [
-        "| département | strokes | DEM tiles | flats | climbs | km | minutes | status |",
-        "|---|---|---|---|---|---|---|---|",
+        "| département | strokes | DEM tiles | flats | climbs | km | tracks | minutes | status |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for code, state in states.items():
         if isinstance(state, str):
-            lines.append(f"| {code} | | | | | | | error: {state} |")
+            lines.append(f"| {code} | | | | | | | | error: {state} |")
             continue
         steps = state["steps"]
         minutes = sum(s.get("seconds", 0) for s in steps.values()) / 60
@@ -263,6 +275,7 @@ def summary_table(states: dict[str, dict[str, Any] | str]) -> str:
         lines.append(
             f"| {code} {state.get('name', '')} | {steps.get('strokes', {}).get('strokes', '')}"
             f" | {steps.get('dem', {}).get('tiles', '')} | {segments.get('flats', '')}"
-            f" | {segments.get('climbs', '')} | {segments.get('km', '')} | {minutes:.1f} | ok |"
+            f" | {segments.get('climbs', '')} | {segments.get('km', '')}"
+            f" | {steps.get('loops', {}).get('tracks', '')} | {minutes:.1f} | ok |"
         )
     return "\n".join(lines) + "\n"
