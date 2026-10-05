@@ -10,6 +10,7 @@ import {
   DEFAULT_CRITERIA,
   featuresBounds,
   filterSegments,
+  haversineMeters,
   isLoop,
   lineParts,
   mapFilter,
@@ -44,6 +45,12 @@ const COLORS = { flat: "#1f6fb2", climb: "#d4570f" };
 const LINK_RADIUS_M = 1500;
 // Pause in the typing before suggesting addresses.
 const SUGGEST_DELAY_MS = 300;
+// Offer to search again once the map center is this far from the search
+// center, as a fraction of the search radius.
+const SEARCH_HERE_FRACTION = 0.25;
+
+const NO_POSITION_STATUS =
+  "Aucune position : déplacez la carte puis « Rechercher ici », ou choisissez une position ci-dessus.";
 
 const SURFACE_LABELS = {
   paved: "revêtu (asphalte, béton…)",
@@ -74,6 +81,10 @@ const state = {
   missingTiles: 0, // tiles of the latest query that could not be read
   position: null,
   positionLabel: "", // how the position was given
+  // Search center without a position: set once (initial view or linked
+  // segment). The circle never follows the map; it moves only on an explicit
+  // action (position, "search here").
+  fallbackCenter: null,
   criteria: { ...DEFAULT_CRITERIA },
   sortBy: "distance",
   selectedId: null,
@@ -268,10 +279,24 @@ for (const id of SEGMENT_LAYERS) {
   map.on("mouseenter", id, () => state.placing || (map.getCanvas().style.cursor = "pointer"));
   map.on("mouseleave", id, () => state.placing || (map.getCanvas().style.cursor = ""));
 }
-// Without a position, the results follow the map.
-map.on("moveend", () => {
-  if (!state.position && state.archive) refreshResults();
+// The circle stays put when the map moves: a button offers to search here.
+map.on("moveend", updateSearchHere);
+
+const searchHere = Object.assign(document.createElement("button"), {
+  type: "button",
+  className: "search-here",
+  textContent: "🔍 Rechercher ici",
+  hidden: true,
 });
+searchHere.addEventListener("click", () => setPosition(mapCenter(), "centre de la carte"));
+map.getContainer().append(searchHere);
+
+/** Show "search here" when the map center is away from the search circle. */
+function updateSearchHere() {
+  const area = state.searchArea;
+  searchHere.hidden =
+    !area || haversineMeters(mapCenter(), area.center) < area.radiusM * SEARCH_HERE_FRACTION;
+}
 
 function emptyCollection() {
   return { type: "FeatureCollection", features: [] };
@@ -313,10 +338,14 @@ async function segmentsAround(center, radiusM) {
   return { features: segmentsFromTiles(tiles.filter(Boolean)), failed };
 }
 
-function searchCenter() {
-  if (state.position) return state.position;
+function mapCenter() {
   const { lng, lat } = map.getCenter();
   return [lng, lat];
+}
+
+function searchCenter() {
+  state.fallbackCenter ??= mapCenter();
+  return state.position ?? state.fallbackCenter;
 }
 
 // --- state updates ------------------------------------------------------------
@@ -357,6 +386,7 @@ async function refreshResults() {
   state.searchArea = { center, radiusM: state.criteria.maxDistanceM };
   updateMapFilters();
   render();
+  updateSearchHere();
 }
 
 function clearSelection() {
@@ -443,7 +473,7 @@ function renderResults() {
   } else if (!state.results.length) {
     const empty = document.createElement("li");
     empty.className = "hint";
-    empty.textContent = "Aucun segment ne correspond : élargissez les critères ou déplacez la carte.";
+    empty.textContent = "Aucun segment ne correspond : élargissez les critères ou cherchez ailleurs (« Rechercher ici »).";
     list.append(empty);
   }
 }
@@ -485,6 +515,10 @@ async function focusSegment(id) {
   if (entry.status === "retired") {
     status(`Le segment ${id} n'existe plus dans les données à jour : la carte montre où il était.`);
     map.jumpTo({ center: entry.position, zoom: 15 });
+    if (!state.position) {
+      state.fallbackCenter = entry.position;
+      refreshResults();
+    }
     updateUrl(); // drop the dead id from the address
     return undefined;
   }
@@ -499,7 +533,9 @@ async function focusSegment(id) {
   state.pinnedId = entry.id;
   updateMapFilters();
   whenLayersReady(() => selectSegment(entry.id, null, feature));
-  if (state.position) refreshResults(); // otherwise moveend (fitBounds) does it
+  // Without a position, search around the linked segment.
+  if (!state.position) state.fallbackCenter = entry.position;
+  refreshResults();
   return undefined;
 }
 
@@ -578,7 +614,7 @@ function setPlacing(placing) {
   if (placing) {
     $("position-status").textContent = "Cliquez sur la carte pour placer le point (Échap pour annuler).";
   } else if (!state.position) {
-    $("position-status").textContent = "Aucune position : résultats autour du centre de la carte.";
+    $("position-status").textContent = NO_POSITION_STATUS;
   } else {
     showPosition();
   }
@@ -740,7 +776,7 @@ async function loadData() {
     setPosition(initial.position, "lien");
     if (!initial.id) map.jumpTo({ center: initial.position, zoom: 14 });
   } else {
-    $("position-status").textContent = "Aucune position : résultats autour du centre de la carte.";
+    $("position-status").textContent = NO_POSITION_STATUS;
     refreshResults();
   }
   if (initial.id) await focusSegment(initial.id);

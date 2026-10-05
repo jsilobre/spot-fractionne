@@ -178,6 +178,10 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   - point placé sur la carte : bouton « Placer sur la carte », puis un clic.
     Un clic sans ce bouton ne déplace pas le point ; on peut aussi le faire
     glisser ;
+  - bouton « Rechercher ici », affiché sur la carte quand son centre
+    s'éloigne du cercle de recherche : il place la position au centre de la
+    carte. Le cercle ne suit jamais la carte d'elle-même ; il ne bouge que par
+    l'un de ces gestes ;
   - saisie, dans un même champ, de « latitude, longitude » ou d'une adresse,
     avec suggestions pendant la frappe (géocodeur de l'IGN,
     [ADR 0010](adr/0010-geocodage-ign.md), fonctions pures dans
@@ -191,7 +195,7 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
     `overview` (zooms 8 à 11), allégée, pour la vue d'ensemble.
   - La **liste des résultats** est construite à partir des tuiles du zoom 12
     qui couvrent le cercle de recherche, autour de la position ou, à défaut,
-    du centre de la carte. La distance maximale est de 10 km, soit au plus
+    du centre de la carte au chargement (ou du segment ouvert par un lien). La distance maximale est de 10 km, soit au plus
     4 × 4 tuiles.
   - La **carte** montre en couleur vive les segments de la liste, et trace le
     cercle de recherche en pointillés. Ses filtres sont des expressions
