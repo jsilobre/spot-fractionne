@@ -21,6 +21,7 @@ ADR NNNN ». Les corrections mineures (précision, lien) se font sur place.
 | [0012](0012-identifiants-stables.md) | Identifiants conservés d'une version publiée à l'autre | Acceptée |
 | [0013](0013-donnees-sur-r2.md) | Données publiées sur Cloudflare R2 | Acceptée |
 | [0014](0014-categorie-boucles.md) | Catégorie Boucles, en commençant par les pistes d'athlétisme | Acceptée |
+| [0015](0015-boucles-du-reseau.md) | Boucles du réseau : tours de parcs, de lacs et de quartiers | Acceptée |
 
 ## Gabarit
 

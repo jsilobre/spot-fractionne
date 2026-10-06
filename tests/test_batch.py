@@ -171,7 +171,7 @@ def test_departments_command_reports_failures_and_continues(
     args = ["--pbf", str(pbf), "--departments-file", str(outlines), "--root", str(tmp_path)]
     result = CliRunner().invoke(cli.app, ["departments", "99", "31", *args])
     assert result.exit_code == 1
-    assert "| 99 | | | | | | | | error: KeyError" in result.output
+    assert "| 99 | | | | | | | | | error: KeyError" in result.output
     assert "| 31 Test |" in result.output
     assert (tmp_path / "31" / "segments.parquet").exists()
 

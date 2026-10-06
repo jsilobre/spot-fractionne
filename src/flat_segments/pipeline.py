@@ -21,6 +21,7 @@ from flat_segments.params import PipelineParams
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
+    from flat_segments.circuits import Candidate, SettingArea
     from flat_segments.export import Published
     from flat_segments.lineage import Lineage
     from flat_segments.loops import Loop
@@ -37,6 +38,7 @@ class DataPaths:
     profiles: Path = Path("data/interim/profiles.parquet")
     segments: Path = Path("data/processed/segments.parquet")
     loops: Path = Path("data/processed/loops.parquet")
+    circuits: Path = Path("data/processed/circuits.parquet")
     geojson: Path = Path("data/processed/segments.geojson")  # for inspection
     web_data: Path = Path("web/data")  # published tiles (export-pmtiles)
 
@@ -46,14 +48,19 @@ def loops_sibling(segments_path: Path) -> Path:
     return segments_path.with_name("loops.parquet")
 
 
+def circuits_sibling(segments_path: Path) -> Path:
+    """Circuits published with a segments file: ``circuits.parquet`` in the same folder."""
+    return segments_path.with_name("circuits.parquet")
+
+
 def read_published(segments_path: Path) -> list[Published]:
-    """Segments of a file, followed by the loops next to it (if any)."""
+    """Segments of a file, followed by the loops and circuits next to it (if any)."""
     from flat_segments.export import read_loops, read_segments
 
     items: list[Published] = list(read_segments(segments_path))
-    loops = loops_sibling(segments_path)
-    if loops.exists():
-        items += read_loops(loops)
+    for path in (loops_sibling(segments_path), circuits_sibling(segments_path)):
+        if path.exists():
+            items += read_loops(path)
     return items
 
 
@@ -125,6 +132,80 @@ def run_loops(
     n_areas, loops = read_loops_from_osm(pbf, bbox)
     write_loops(loops, out)
     return n_areas, len(loops)
+
+
+def read_setting_areas(
+    pbf: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> list[SettingArea]:
+    """Parks, green spaces and water of an OSM extract, in Lambert-93."""
+    from shapely.geometry import Polygon
+
+    from flat_segments.circuits import SettingArea, setting_kind
+    from flat_segments.geometry import make_projector
+    from flat_segments.osm import iter_setting_areas
+    from flat_segments.params import WORK_CRS
+
+    project = make_projector("EPSG:4326", WORK_CRS)
+    areas: list[SettingArea] = []
+    for raw in iter_setting_areas(pbf, bbox, area):
+        kind = setting_kind(raw.tags)
+        if kind is None:
+            continue
+        for ring, hole in zip(raw.rings, raw.holes, strict=True):
+            polygon = Polygon(project(ring), [project(hole)] if hole is not None else [])
+            if not polygon.is_valid:
+                polygon = polygon.buffer(0)
+            if not polygon.is_empty:
+                areas.append(SettingArea(raw.osm_id, kind, polygon, raw.tags.get("name")))
+    return areas
+
+
+def circuit_grades(
+    candidates: Sequence[Candidate],
+    dem: Path,
+    params: PipelineParams,
+    fallback: Path | None = None,
+) -> list[float | None]:
+    """Largest local grade of each circuit, on ``dem`` then, where it has no data, ``fallback``."""
+    from flat_segments.circuits import max_local_grade
+    from flat_segments.elevation import RasterDem
+
+    with RasterDem(dem) as sampler:
+        grades = [max_local_grade(c, sampler, params.profile) for c in candidates]
+    if fallback is not None and any(g is None for g in grades):
+        with RasterDem(fallback) as sampler:
+            grades = [
+                max_local_grade(c, sampler, params.profile) if g is None else g
+                for c, g in zip(candidates, grades, strict=True)
+            ]
+    return grades
+
+
+def run_circuits(
+    pbf: Path,
+    dem: Path,
+    bbox: tuple[float, float, float, float] | None,
+    out: Path,
+    params: PipelineParams,
+) -> tuple[int, int]:
+    """Find the flat circuits of an OSM extract (with all its tags) on a DEM covering it.
+
+    Returns:
+        ``(number of candidates, number of circuits)``.
+    """
+    from flat_segments.circuits import find_candidates, select_circuits
+    from flat_segments.download import fallback_vrt_path
+    from flat_segments.export import write_loops
+    from flat_segments.osm import read_ways
+
+    candidates = find_candidates(read_ways(pbf, bbox), read_setting_areas(pbf, bbox))
+    fallback = fallback_vrt_path(dem)
+    grades = circuit_grades(candidates, dem, params, fallback if fallback.exists() else None)
+    circuits = select_circuits(candidates, grades, params.detection.flat.max_local_grade_pct)
+    write_loops(circuits, out)
+    return len(candidates), len(circuits)
 
 
 def run_elevation(
