@@ -317,7 +317,9 @@ def run_publish(
 ) -> tuple[int, TilesetFiles, Lineage | None]:
     """Publish one or more segments files (pilot, départements) as a tileset.
 
-    The loops of each file (``loops.parquet`` next to it) are published with it.
+    The loops of each file (``loops.parquet`` and ``circuits.parquet`` next
+    to it) are published with it; a loop already published by an earlier
+    file (same id: same ring) is skipped.
 
     The parameters recorded next to each file (``segments.params.toml``) must
     be identical: a published set says how it was produced. With
@@ -355,10 +357,14 @@ def run_publish(
         out_dir, sample=sample, params=params, tiles_url=tiles_url, index_url=index_url
     )
     renamed: list[dict[str, str]] = []  # per file: own id -> final id, when they differ
+    dropped: list[set[int]] = []  # per file: positions of loops already published
     own_ids: set[str] = set()
     try:
         for path in segments_files:
-            segments = read_published(path)
+            items = read_published(path)
+            skip = _repeated_loops(items, own_ids)
+            dropped.append(skip)
+            segments = [s for i, s in enumerate(items) if i not in skip]
             for segment in segments:
                 if segment.id in own_ids:
                     raise ValueError(f"duplicate segment ids across the files: {segment.id}")
@@ -379,11 +385,35 @@ def run_publish(
         raise
 
     def chunks() -> Iterator[list[Published]]:
-        for path, ids in zip(segments_files, renamed, strict=True):
-            yield [replace(s, id=ids[s.id]) if s.id in ids else s for s in read_published(path)]
+        for path, ids, skip in zip(segments_files, renamed, dropped, strict=True):
+            yield [
+                replace(s, id=ids[s.id]) if s.id in ids else s
+                for i, s in enumerate(read_published(path))
+                if i not in skip
+            ]
 
     files = writer.close(chunks)
     return writer.total, files, lineage
+
+
+def _repeated_loops(items: Sequence[Published], seen: set[str]) -> set[int]:
+    """Positions of the loops whose id is in ``seen`` or earlier in ``items``.
+
+    A loop id depends only on the ring's centroid and length (``loops.loop_id``):
+    two loops with the same id are the same ring, found twice (a track also
+    mapped as a footway, a lake on a border seen from both départements).
+    Only the first one is published.
+    """
+    from flat_segments.loops import Loop
+
+    ids = set(seen)
+    repeated: set[int] = set()
+    for i, item in enumerate(items):
+        if isinstance(item, Loop):
+            if item.id in ids:
+                repeated.add(i)
+            ids.add(item.id)
+    return repeated
 
 
 def _bounds(segments: Sequence[Published]) -> tuple[float, float, float, float]:

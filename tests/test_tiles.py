@@ -11,7 +11,7 @@ from flat_segments import cli, tiles
 from flat_segments.detect import Segment, SegmentKind
 from flat_segments.export import OSM_ATTRIBUTION, write_loops, write_segments
 from flat_segments.loops import Loop, SportArea, build_tracks
-from flat_segments.pipeline import loops_sibling, params_sidecar, run_publish
+from flat_segments.pipeline import circuits_sibling, loops_sibling, params_sidecar, run_publish
 from tests.test_export import sample_segments
 from tests.test_loops import stadium
 
@@ -209,3 +209,19 @@ def test_a_loop_keeps_its_published_id(tmp_path: Path) -> None:
     assert lineage is not None
     index = json.loads((files.index_dir / f"{tiles.index_key(old.id)}.json").read_text())
     assert len(index[old.id]) == 2  # a live id, not a redirect
+
+
+@needs_tippecanoe
+def test_a_loop_found_twice_is_published_once(tmp_path: Path) -> None:
+    # A lake on a border is found from both départements; a track can also be
+    # mapped as a footway ring: same ring, same id.
+    track = labege_track()
+    first = write_run(tmp_path / "31", labege_segments())
+    write_loops([track], loops_sibling(first))
+    write_loops([track], circuits_sibling(first))
+    shifted = [replace(s, id=f"{s.id}-b", coords=s.coords + 5000.0) for s in labege_segments()]
+    second = write_run(tmp_path / "32", shifted)
+    write_loops([track], loops_sibling(second))
+    count, files, _ = run_publish([first, second], tmp_path / "web")
+    assert count == 2 * len(shifted) + 1
+    assert json.loads(files.metadata.read_text())["counts"]["loop"] == 1
