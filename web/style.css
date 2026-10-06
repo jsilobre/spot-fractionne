@@ -238,6 +238,15 @@ input[type="range"] {
   gap: 6px;
 }
 
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .segmented {
   display: flex;
   margin: 0;

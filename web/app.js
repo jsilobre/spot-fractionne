@@ -638,6 +638,7 @@ function readControls() {
   c.noCrossing = $("no-crossing").checked;
   c.pavedOnly = $("paved-only").checked;
   c.publicOnly = $("public-only").checked;
+  c.loopTypes = [...document.querySelectorAll('input[name="loop-type"]:checked')].map((e) => e.value);
   state.sortBy = $("sort-by").value;
 
   $("max-local-grade-value").textContent = `${fmt(c.maxLocalGradePct, 1)} %`;
