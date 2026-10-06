@@ -1,9 +1,10 @@
 """Generate the fictitious sample dataset of the web page.
 
 Builds a synthetic network and terrain around Labège, runs the real detection
-pipeline on it, adds two running tracks, and writes the tileset of ``web/data/sample/`` (flagged as
-sample data; needs tippecanoe, ADR 0009). Nothing here comes from OSM or IGN:
-the segments are fake and must not be used to go running.
+pipeline on it, adds two running tracks and the flat circuits of the network,
+and writes the tileset of ``web/data/sample/`` (flagged as sample data; needs
+tippecanoe, ADR 0009). Nothing here comes from OSM or IGN: the segments are
+fake and must not be used to go running.
 
 Usage: ``uv run python scripts/make_sample_data.py``
 """
@@ -16,7 +17,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
+from shapely.geometry import Point
+from shapely.geometry.base import BaseGeometry
 
+from flat_segments.circuits import SettingArea, find_candidates, max_local_grade, select_circuits
 from flat_segments.detect import SegmentKind, detect_all
 from flat_segments.elevation import FunctionDem, sample_stroke
 from flat_segments.geometry import FloatArray
@@ -128,6 +132,17 @@ def network() -> list[Way]:
         way(line((-200, 0), (-200, -700), 50), path, "footway", surface="ground"),
         # Winding path: too sinuous for intervals.
         way([(1600 + 30 * k, -100 + (30 if k % 2 else 0)) for k in range(28)], path, "path"),
+        # Pond loop (a lap round the water).
+        way(
+            [
+                (-1000 + 70 * math.cos(a), 100 + 70 * math.sin(a))
+                for a in np.linspace(0, 2 * math.pi, 37)[:-1]
+            ]
+            + [(-930.0, 100.0)],
+            path,
+            "footway",
+            surface="compacted",
+        ),
         # Park loop.
         way(
             [
@@ -180,16 +195,32 @@ def tracks() -> list[SportArea]:
     ]
 
 
+def settings() -> list[SettingArea]:
+    """A park and a pond (local coordinates in metres)."""
+
+    def disc(u: float, v: float, radius: float) -> BaseGeometry:
+        return Point(ORIGIN[0] + u, ORIGIN[1] + v).buffer(radius)
+
+    return [
+        SettingArea("way/5", "park", disc(-950, -200, 125), "Parc (fictif)"),
+        SettingArea("way/6", "water", disc(-1000, 100, 50), "Étang (fictif)"),
+    ]
+
+
 def main() -> None:
     """Run the pipeline on the synthetic network and write the sample tileset."""
     params = PipelineParams()
-    strokes = build_strokes(network(), params.network)
+    ways = network()
+    strokes = build_strokes(ways, params.network)
     dem = FunctionDem(terrain)
     z_raw = {s.id: sample_stroke(s.coords, dem, params.profile) for s in strokes}
     segments = detect_all(strokes, z_raw, params, elevation_source="synthetic")
     loops = build_tracks(tracks())
+    candidates = find_candidates(ways, settings())
+    grades = [max_local_grade(c, dem, params.profile) for c in candidates]
+    circuits = select_circuits(candidates, grades, params.detection.flat.max_local_grade_pct)
     write_tileset(
-        [*segments, *loops],
+        [*segments, *loops, *circuits],
         OUTPUT,
         sample=True,
         generated_at=GENERATED_AT,
@@ -198,7 +229,7 @@ def main() -> None:
     n_flat = sum(s.kind is SegmentKind.FLAT for s in segments)
     print(
         f"{len(strokes)} strokes -> {n_flat} flat segments, {len(segments) - n_flat} climbs, "
-        f"{len(loops)} tracks"
+        f"{len(loops)} tracks, {len(circuits)} circuits"
     )
     print(f"written to {OUTPUT}")
 

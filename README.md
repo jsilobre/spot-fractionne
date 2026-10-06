@@ -9,8 +9,10 @@ position de l'appareil) :
 1. **Segments plats et courts** pour le fractionné et le travail d'allure :
    longueurs cibles 200 m, 400 m et 1 km (paramétrables), pente maximale faible.
 2. **Côtes** pour le travail en montée : longueur et pente moyenne cibles.
-3. **Boucles** pour enchaîner des tours sans demi-tour : pour l'instant les
-   pistes d'athlétisme d'OpenStreetMap (tour de 200 à 400 m, accès indiqué).
+3. **Boucles** pour enchaîner des tours sans demi-tour : les pistes
+   d'athlétisme d'OpenStreetMap (tour de 200 à 400 m, accès indiqué) et les
+   boucles plates du réseau, de 200 m à 2 km (tour de parc, de lac, boucle de
+   quartier sans voitures).
 
 Contrairement à Strava ou Komoot, on ne cherche pas de parcours, mais des
 **tronçons** courts : une ligne droite plate de 400 m sans traversée de route, ou une
