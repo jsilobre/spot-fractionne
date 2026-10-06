@@ -189,6 +189,28 @@ def loops(
 
 
 @app.command()
+def circuits(
+    pbf: Annotated[
+        Path,
+        typer.Option(
+            help="OSM extract with all its tags (regional; the clipped pilot file only has ways).",
+            exists=True,
+            dir_okay=False,
+        ),
+    ],
+    dem: DemIn = PATHS.dem,
+    bbox: BboxOpt = DEFAULT_BBOX,
+    out: Annotated[Path, _out("Output circuits GeoParquet.")] = PATHS.circuits,
+    config: ConfigOpt = None,
+    overrides: SetOpt = None,
+) -> None:
+    """Find the flat circuits (loops of the network: parks, lakes, car-free blocks)."""
+    params = get_params(config, overrides)
+    n_candidates, n_circuits = steps.run_circuits(pbf, dem, parse_bbox(bbox), out, params)
+    typer.echo(f"{n_candidates} candidates -> {n_circuits} flat circuits -> {out}")
+
+
+@app.command()
 def export(
     segments: SegmentsIn = PATHS.segments,
     out: GeojsonOut = PATHS.geojson,
@@ -410,7 +432,7 @@ def department(
     config: ConfigOpt = None,
     overrides: SetOpt = None,
 ) -> None:
-    """Process one département (resumable): strokes, DEM, profiles, segments, loops."""
+    """Process one département (resumable): strokes, DEM, profiles, segments, loops, circuits."""
     departments([code], pbf, departments_file, root, keep_dem, force, config, overrides)
 
 

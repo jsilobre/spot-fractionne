@@ -133,6 +133,9 @@ LOOP_PUBLIC_FIELDS: Final = (
     "opening_hours",
     "indoor",
     "osm_id",
+    "setting",
+    "n_crossings",
+    "grade_max_pct",
 )
 
 
@@ -142,6 +145,8 @@ def loop_properties(loop: Loop) -> dict[str, Any]:
     props["length_m"] = round(loop.length_m, ROUNDING["length_m"])
     if loop.lap_m is not None:
         props["lap_m"] = round(loop.lap_m, ROUNDING["length_m"])
+    if loop.grade_max_pct is not None:
+        props["grade_max_pct"] = round(loop.grade_max_pct, ROUNDING["grade_max_pct"])
     return props
 
 
@@ -271,6 +276,9 @@ LOOP_FIELDS: Final = (
     "opening_hours",
     "indoor",
     "osm_id",
+    "setting",
+    "n_crossings",
+    "grade_max_pct",
 )
 
 

@@ -1,15 +1,18 @@
 """Batch production by département (phase 2.1, docs/phase-2/2.1-departement.md).
 
-A département is processed in five resumable steps, on its outline grown by
+A département is processed in six resumable steps, on its outline grown by
 a margin (:data:`~flat_segments.departments.BORDER_MARGIN_M`):
 
 1. ``strokes``: ways of a regional OSM extract inside the grown outline;
 2. ``dem``: DEM tiles touching the grown outline (one national 4 km grid);
-3. ``profiles``: elevation sampled along the strokes (the DEM can then go);
+3. ``profiles``: elevation sampled along the strokes;
 4. ``segments``: detection, then the segments whose midpoint lies in the
    département itself;
 5. ``loops``: running tracks mapped in OSM (no elevation needed), kept the
-   same way.
+   same way;
+6. ``circuits``: flat loops of the network whose inside point lies in the
+   département; their elevation is read on the DEM tiles touching them
+   (fetched again if the DEM is gone). The DEM can then go.
 
 Outputs go to ``<root>/<code>/``. ``state.json`` records each finished step
 (duration, counts) and the parameters used: a new run resumes after the last
@@ -25,6 +28,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
+
+import shapely
 
 from flat_segments.config import params_to_toml
 from flat_segments.departments import (
@@ -47,7 +52,9 @@ from flat_segments.download import (
 )
 from flat_segments.params import WEB_CRS, WORK_CRS, PipelineParams
 
-STEPS: Final = ("strokes", "dem", "profiles", "segments", "loops")
+STEPS: Final = ("strokes", "dem", "profiles", "segments", "loops", "circuits")
+#: Margin of the DEM fetched around circuits (``circuits`` step).
+CIRCUIT_DEM_MARGIN_M: Final = 50.0
 
 
 class StateError(RuntimeError):
@@ -65,6 +72,7 @@ class DepartmentPaths:
     profiles: Path
     segments: Path
     loops: Path
+    circuits: Path
     params: Path
     state: Path
 
@@ -79,6 +87,7 @@ def department_paths(root: Path) -> DepartmentPaths:
         profiles=root / "profiles.parquet",
         segments=root / "segments.parquet",
         loops=root / "loops.parquet",
+        circuits=root / "circuits.parquet",
         params=root / "segments.params.toml",
         state=root / "state.json",
     )
@@ -127,7 +136,7 @@ def run_department(
         root: Parent folder of the département folders.
         params: Pipeline parameters (all steps).
         opener: URL opener for the DEM service (tests inject a fake one).
-        keep_dem: Keep the DEM tiles after sampling (deleted by default).
+        keep_dem: Keep the DEM tiles at the end (deleted by default).
         force: Start again from scratch (the state is discarded).
         margin_m: Margin around the outline, so that border ways are not cut.
         dem_resolution_m: DEM pixel size.
@@ -143,6 +152,7 @@ def run_department(
     Raises:
         StateError: If a previous run used other parameters (use ``force``).
     """
+    from flat_segments.circuits import find_candidates, select_circuits
     from flat_segments.export import (
         read_profiles,
         read_strokes,
@@ -152,7 +162,12 @@ def run_department(
     )
     from flat_segments.network import build_strokes
     from flat_segments.osm import read_ways
-    from flat_segments.pipeline import read_loops_from_osm, run_elevation
+    from flat_segments.pipeline import (
+        circuit_grades,
+        read_loops_from_osm,
+        read_setting_areas,
+        run_elevation,
+    )
 
     department: Department = load_department(departments_file, code)
     paths = department_paths(root / code)
@@ -225,8 +240,6 @@ def run_department(
             fallback=fallback if fallback.exists() else None,
         )
         finish("profiles", start, profiles=n_profiles, fallback=n_on_fallback)
-    if not keep_dem and paths.dem_dir.exists():
-        shutil.rmtree(paths.dem_dir)
 
     if "segments" not in steps:
         start = time.monotonic()
@@ -256,18 +269,50 @@ def run_department(
         owned = owned_segments(loops, department.outline_l93())
         write_loops(owned, paths.loops)
         finish("loops", start, areas=n_areas, tracks=len(owned))
+
+    if "circuits" not in steps:
+        start = time.monotonic()
+        candidates = find_candidates(
+            read_ways(pbf, area=area_wgs84),
+            read_setting_areas(pbf, area=area_wgs84),
+            department.outline_l93(),
+        )
+        grades: list[float | None] = []
+        if candidates:
+            around = shapely.union_all([c.polygon.buffer(CIRCUIT_DEM_MARGIN_M) for c in candidates])
+            vrt = download_dem(
+                snap_bounds(around.bounds, dem_tile_size_m),
+                paths.dem_dir,
+                opener,
+                tile_size_m=dem_tile_size_m,
+                resolution_m=dem_resolution_m,
+                area=around,
+                fallback_layer=fallback_layer,
+                vrt_name="circuits.vrt",
+            )
+            fallback = fallback_vrt_path(vrt)
+            grades = circuit_grades(
+                candidates, vrt, params, fallback if fallback.exists() else None
+            )
+        circuits = select_circuits(candidates, grades, params.detection.flat.max_local_grade_pct)
+        write_loops(circuits, paths.circuits)
+        finish("circuits", start, candidates=len(candidates), circuits=len(circuits))
+
+    if not keep_dem and paths.dem_dir.exists():
+        shutil.rmtree(paths.dem_dir)
     return state
 
 
 def summary_table(states: dict[str, dict[str, Any] | str]) -> str:
     """Markdown table of a batch: duration and counts, or the error."""
     lines = [
-        "| département | strokes | DEM tiles | flats | climbs | km | tracks | minutes | status |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| département | strokes | DEM tiles | flats | climbs | km | tracks | circuits"
+        " | minutes | status |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for code, state in states.items():
         if isinstance(state, str):
-            lines.append(f"| {code} | | | | | | | | error: {state} |")
+            lines.append(f"| {code} | | | | | | | | | error: {state} |")
             continue
         steps = state["steps"]
         minutes = sum(s.get("seconds", 0) for s in steps.values()) / 60
@@ -276,6 +321,7 @@ def summary_table(states: dict[str, dict[str, Any] | str]) -> str:
             f"| {code} {state.get('name', '')} | {steps.get('strokes', {}).get('strokes', '')}"
             f" | {steps.get('dem', {}).get('tiles', '')} | {segments.get('flats', '')}"
             f" | {segments.get('climbs', '')} | {segments.get('km', '')}"
-            f" | {steps.get('loops', {}).get('tracks', '')} | {minutes:.1f} | ok |"
+            f" | {steps.get('loops', {}).get('tracks', '')}"
+            f" | {steps.get('circuits', {}).get('circuits', '')} | {minutes:.1f} | ok |"
         )
     return "\n".join(lines) + "\n"

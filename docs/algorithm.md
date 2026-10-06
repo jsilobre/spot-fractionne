@@ -506,3 +506,89 @@ Ces seuils sont des constantes de `loops.py`, pas des paramètres de
 détection : ils décrivent le balisage OSM plutôt qu'un réglage, et les
 ajouter à `PipelineParams` changerait les paramètres enregistrés de tous les
 départements déjà calculés.
+
+## 16. Boucles du réseau
+
+Deuxième source de boucles (`loop_type = "circuit"`,
+[ADR 0015](adr/0015-boucles-du-reseau.md)) : les tours qu'on peut faire sur
+le réseau lui-même, autour d'un parc, d'un lac ou d'un pâté de maisons sans
+voitures. Module `circuits.py`, commande `circuits`, étape `circuits` d'un
+département. Choix de Jérémy (06/10/2026) : les tours de parcs et de lacs
+**et** les boucles de quartier sans voitures, de 200 m à 2 km, plates
+seulement.
+
+**Graphe.** Les voies support (§ 1, MINOR et PATH) découpées à chaque nœud
+partagé, comme pour les strokes (`network.split_ways`). Les nœuds des routes
+MAJOR sont des barrières : une boucle ne doit pas y passer. On retire les
+impasses, de proche en proche (2-cœur) ; une voie fermée seule (le tour d'un
+étang dessiné d'un trait) compte deux fois à son nœud et reste.
+
+**Faces.** Le graphe est dessiné sur la carte : autour de chaque nœud, les
+départs de voies sont triés par direction (mesurée sur les 3 premiers
+mètres), et en tournant toujours vers le départ suivant on parcourt les
+faces, les cellules du réseau.
+
+**Tours de parcs et de lacs.** Pour chaque parc, jardin, espace vert ou plan
+d'eau de 3 000 m² à 2 km² (`leisure`, `landuse`, `natural`, voir
+`setting_kind`) : les chemins sans voitures dont le milieu est dans la
+surface élargie de 20 m (60 m pour l'eau), réduits à leur 2-cœur ; le
+contour extérieur de chacun de leurs morceaux, coupé aux nœuds répétés en
+boucles simples, est un tour. Il doit entourer au moins 30 % du parc (50 %
+du plan d'eau). C'est la source la plus utile : les faces d'un parc ou d'une
+forêt sont un dédale d'allées (293 cellules pour la seule forêt de
+Bouconne), pas des boucles.
+
+**Filtres communs.**
+
+- Longueur de 200 m à 2 km.
+- Anneau simple (polygone valide), sans voie répétée.
+- Compacité (`4π × aire / longueur²`) d'au moins 0,3 ; 0,15 pour un tour de
+  parc (un parc le long d'une rivière est long et étroit).
+- Aucun nœud de route MAJOR.
+- Au moins 60 % de la longueur sur des chemins (PATH), trottoirs exclus
+  (`footway=sidewalk | crossing` longent une route).
+- Point intérieur (`representative_point`) dans le département : rattachement
+  sans doublon, comme la règle du milieu des segments.
+
+**Traversées.** Les nœuds de la boucle où arrive une route MINOR qui n'en
+fait pas partie (`n_crossings`).
+
+**Cadre** (`setting`), d'après les surfaces qui couvrent l'intérieur de la
+boucle : `water` si l'eau en couvre au moins 15 %, `park` si les parcs et
+espaces verts en couvrent au moins 40 %, sinon `neighbourhood`. Une face
+dont la moitié de la longueur est en `highway=track` est à la campagne :
+écartée. Nom : celui du parc ou du lac d'un tour, sinon de la surface nommée
+qui couvre le plus l'intérieur (au moins 20 %).
+
+**Faces gardées.** Tous les tours de parcs et de lacs, les faces autour de
+l'eau, et les faces de quartier à au moins 80 % sans voitures, avec au plus
+une traversée, d'au moins 400 m et d'une compacité d'au moins 0,4.
+
+**Plat.** Le profil est construit sur deux tours de la boucle (§ 3 à 6,
+mêmes paramètres, ponts et tunnels interpolés), et on lit le tour du milieu,
+pour que le lissage et le comblement des trous voient une boucle sans
+début ni fin. La pente locale maximale (`grade_max_pct`) doit rester sous
+`flat.max_local_grade_pct` (2 %). Une boucle dont une partie reste sans
+altitude après comblement est écartée. Le MNT de secours (RGE ALTI) est lu
+quand le LiDAR HD manque.
+
+**Une boucle par lieu.** Trois classes de taille (moins de 500 m, 500 m à
+1 km, plus de 1 km) ; dans une classe, deux boucles à moins de 100 m l'une
+de l'autre sont le même lieu. On garde, dans l'ordre : une boucle sans
+traversée, un tour de parc ou de lac plutôt qu'une face, l'eau puis le parc
+puis le quartier, la plus longue. Les boucles imbriquées de tailles
+différentes restent toutes. Ce tri vient après le filtre de pente, pour
+qu'une boucle plate remplace une voisine en pente.
+
+**Attributs.** `surface` et `lit` : la valeur qui couvre le plus de
+longueur. `access` vaut `public`, `lap_m` est nul, `osm_id` désigne le parc
+ou le lac d'un tour, sinon la plus longue voie. Identifiant : comme une
+piste (§ 15).
+
+**Essai sur la Haute-Garonne** (06/10/2026, sans le filtre de pente, le MNT
+n'étant pas joignable depuis l'environnement d'essai) : 642 candidates, 506
+boucles après le tri par lieu (225 parcs, 144 lacs, 137 quartiers).
+
+Comme pour les pistes, ces seuils sont des constantes de `circuits.py`, pas
+des paramètres de détection ; seul le seuil de pente reprend
+`flat.max_local_grade_pct`.

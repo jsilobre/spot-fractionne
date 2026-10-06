@@ -78,7 +78,9 @@ Champs **internes**, présents seulement dans le GeoParquet :
 ## Table `loops`
 
 Fichiers : `data/processed/loops.parquet` (commande `loops`) et
-`data/departments/CODE/loops.parquet` (étape `loops`). GeoParquet en
+`data/departments/CODE/loops.parquet` (étape `loops`) pour les pistes ;
+`circuits.parquet` (commande et étape `circuits`) pour les boucles du réseau,
+avec les mêmes champs. GeoParquet en
 Lambert-93, une ligne par boucle. En Python : dataclass
 `flat_segments.loops.Loop`. Publiée dans les tuiles avec le fichier de
 segments du même dossier (voir ci-dessous) ; `kind` y vaut `loop`.
@@ -87,16 +89,19 @@ segments du même dossier (voir ci-dessous) ; `kind` y vaut `loop`.
 |---|---|---|---|
 | `id` | `str` | — | Identifiant stable `"loop-{12 hex}"`, voir [`algorithm.md` § 15](algorithm.md#15-boucles--pistes-dathlétisme) |
 | `geometry` | `LineString` | — | Anneau fermé (premier point répété à la fin) : bord intérieur d'une piste en anneau, sinon son contour |
-| `loop_type` | `str` | — | `track` (piste d'athlétisme) ; `circuit` réservé aux boucles du réseau |
+| `loop_type` | `str` | — | `track` (piste d'athlétisme) ; `circuit` (boucle du réseau, [`algorithm.md` § 16](algorithm.md#16-boucles-du-réseau)) |
 | `length_m` | `float` | m | Longueur mesurée de l'anneau |
 | `lap_m` | `float` \| `null` | m | Tour standard correspondant (200, 250, 300, 333,3 ou 400 m), `null` si aucun |
-| `name` | `str` \| `null` | — | Nom de la piste, sinon de l'équipement qui l'entoure |
+| `name` | `str` \| `null` | — | Nom de la piste, sinon de l'équipement qui l'entoure ; pour une boucle du réseau, nom du parc ou du lac |
 | `surface` | `str` | — | Revêtement, mêmes valeurs que pour `segments` |
 | `lit` | `str` | — | Éclairage : `yes`, `no`, `unknown` |
-| `access` | `str` | — | `public`, `restricted`, `unknown` |
+| `access` | `str` | — | `public`, `restricted`, `unknown` (toujours `public` pour une boucle du réseau) |
 | `opening_hours` | `str` \| `null` | — | Tag OSM `opening_hours`, brut |
 | `indoor` | `bool` | — | Piste couverte |
-| `osm_id` | `str` | — | Objet OSM de la piste : `way/123` ou `relation/45` |
+| `osm_id` | `str` | — | Objet OSM de la piste : `way/123` ou `relation/45` ; pour une boucle du réseau, le parc ou le lac dont elle fait le tour, sinon sa plus longue voie |
+| `setting` | `str` \| `null` | — | Boucles du réseau : `water` (tour de lac ou d'étang), `park`, `neighbourhood` |
+| `n_crossings` | `int` \| `null` | — | Boucles du réseau : routes qui rejoignent la boucle |
+| `grade_max_pct` | `float` \| `null` | % | Boucles du réseau : pente locale maximale le long de la boucle |
 
 ## Publication en tuiles vectorielles (site)
 

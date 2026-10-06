@@ -95,6 +95,7 @@ LIT_NO: Final = frozenset({"no", "disused"})
 #: Tags kept when reading OSM (everything the pipeline looks at).
 USED_TAGS: Final = (
     "highway",
+    "footway",
     "service",
     "area",
     "access",
@@ -196,6 +197,7 @@ def way_from_osm(
         lit=tags.get("lit"),
         structure=structure_of(tags),
         name=tags.get("name"),
+        footway=tags.get("footway"),
     )
 
 
@@ -346,6 +348,36 @@ def iter_sport_areas(
             least one node inside are kept.
         area: WGS84 polygon; areas with at least one node inside are kept.
     """
+    return _iter_areas(path, SPORT_AREA_KEYS, SPORT_AREA_TAGS, bbox, area)
+
+
+#: Tag keys of the areas read by :func:`iter_setting_areas`.
+SETTING_AREA_KEYS: Final = ("leisure", "landuse", "natural")
+#: Tags kept on those areas (everything ``circuits.py`` looks at).
+SETTING_AREA_TAGS: Final = ("leisure", "landuse", "natural", "water", "name")
+
+
+def iter_setting_areas(
+    path: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> Iterator[RawArea]:
+    """Stream the areas with a ``leisure``, ``landuse`` or ``natural`` tag.
+
+    Parks, water and green spaces among them give circuits their setting
+    (``circuits.setting_kind``). Arguments as :func:`iter_sport_areas`.
+    """
+    return _iter_areas(path, SETTING_AREA_KEYS, SETTING_AREA_TAGS, bbox, area)
+
+
+def _iter_areas(
+    path: Path,
+    keys: tuple[str, ...],
+    kept_tags: tuple[str, ...],
+    bbox: tuple[float, float, float, float] | None,
+    area: BaseGeometry | None,
+) -> Iterator[RawArea]:
+    """Areas with one of ``keys``, with their ``kept_tags``."""
     import osmium
     import shapely
 
@@ -355,9 +387,9 @@ def iter_sport_areas(
 
     processor = (
         osmium.FileProcessor(str(path))
-        .with_areas(osmium.filter.KeyFilter(*SPORT_AREA_KEYS))
+        .with_areas(osmium.filter.KeyFilter(*keys))
         .with_filter(osmium.filter.EntityFilter(osmium.osm.AREA))
-        .with_filter(osmium.filter.KeyFilter(*SPORT_AREA_KEYS))
+        .with_filter(osmium.filter.KeyFilter(*keys))
     )
     for obj in processor:
         if not isinstance(obj, osmium.osm.Area):
@@ -385,7 +417,7 @@ def iter_sport_areas(
             and shapely.contains_xy(area, lonlat[:, 0], lonlat[:, 1]).any()
         ):
             continue
-        tags = {key: obj.tags[key] for key in SPORT_AREA_TAGS if key in obj.tags}
+        tags = {key: obj.tags[key] for key in kept_tags if key in obj.tags}
         kind = "way" if obj.from_way() else "relation"
         yield RawArea(f"{kind}/{obj.orig_id()}", rings, holes, tags)
 

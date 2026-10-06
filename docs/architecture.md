@@ -76,8 +76,9 @@ Chaque étape est une commande de la CLI Typer `flat-segments` :
 | `elevation` | strokes + MNT (GeoTIFF/VRT en Lambert-93) | `data/interim/profiles.parquet` | `elevation.py` |
 | `detect` | strokes + profils | `data/processed/segments.parquet` | `profile.py`, `detect.py` |
 | `loops` | extrait OSM complet (pas l'extrait pilote découpé) + emprise | `data/processed/loops.parquet` (pistes d'athlétisme) | `osm.py`, `loops.py` |
+| `circuits` | extrait OSM complet + MNT + emprise | `data/processed/circuits.parquet` (boucles plates du réseau) | `osm.py`, `circuits.py`, `profile.py` |
 | `export` | segments | `data/processed/segments.geojson` (inspection) | `export.py` |
-| `export-pmtiles` | un ou plusieurs fichiers de segments (et le `loops.parquet` voisin de chacun) ; avec `--previous`, le jeu déjà publié | `web/data/segments.pmtiles`, `segments.json`, `ids/` (identifiants de la version publiée conservés, [ADR 0012](adr/0012-identifiants-stables.md)) | `tiles.py` (tippecanoe), `lineage.py` |
+| `export-pmtiles` | un ou plusieurs fichiers de segments (et les `loops.parquet` et `circuits.parquet` voisins de chacun) ; avec `--previous`, le jeu déjà publié | `web/data/segments.pmtiles`, `segments.json`, `ids/` (identifiants de la version publiée conservés, [ADR 0012](adr/0012-identifiants-stables.md)) | `tiles.py` (tippecanoe), `lineage.py` |
 | `pipeline` | extrait découpé + MNT | les quatre sorties ci-dessus | `pipeline.py` |
 
 Le découpage en quatre étapes permet de régler les seuils de détection
@@ -88,7 +89,7 @@ Le découpage en quatre étapes permet de régler les seuils de détection
 | Commande | Entrée | Sortie | Modules |
 |---|---|---|---|
 | `download-departments` | WFS de la Géoplateforme (Admin Express) | `data/raw/departements.geojson` | `departments.py` |
-| `department CODE` | extrait OSM régional + contours | `data/departments/CODE/` : `strokes.parquet`, `profiles.parquet`, `segments.parquet`, `loops.parquet`, `state.json` | `batch.py`, `departments.py` |
+| `department CODE` | extrait OSM régional + contours | `data/departments/CODE/` : `strokes.parquet`, `profiles.parquet`, `segments.parquet`, `loops.parquet`, `circuits.parquet`, `state.json` | `batch.py`, `departments.py` |
 | `departments CODE…` | idem, plusieurs départements | idem, plus un récapitulatif | `batch.py` |
 | `renumber-osm PBF OUT` | extrait OSM | copie dont les nœuds sont numérotés à partir de 1, voies inchangées (mémoire d'osmium pour `cut-osm`) | `osm_extracts.py` (osmium) |
 | `cut-osm PBF [CODE…]` | extrait OSM national + contours | `data/osm/CODE.osm.pbf` : un extrait par département (contour élargi, voies entières), par lots | `osm_extracts.py` (osmium) |
@@ -131,6 +132,7 @@ Les modules :
 | `profile.py` | Profil en long : bouche-trous, interpolation sous ponts et tunnels, lissage, pente locale, D+/D- | pur |
 | `detect.py` | Fenêtre glissante, fusion en tronçons maximaux, attributs, score, déduplication | pur |
 | `loops.py` | Boucles : pistes d'athlétisme retenues, tour standard, accès, doublons, id stable ([ADR 0014](adr/0014-categorie-boucles.md)) | pur |
+| `circuits.py` | Boucles du réseau : faces du graphe et tours de parcs ou de lacs, cadre, pente maximale, une boucle par lieu ([ADR 0015](adr/0015-boucles-du-reseau.md)) | pur |
 | `export.py` | Lecture/écriture GeoParquet, export GeoJSON (WGS84) | E/S |
 | `download.py` | Téléchargements : extrait OSM (MD5), dalles MNT par WMS, assemblage en VRT | E/S |
 | `pipeline.py` | Les quatre étapes, et la lecture des boucles, sous forme de fonctions partagées par les commandes | E/S |

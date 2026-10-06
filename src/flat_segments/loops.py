@@ -81,7 +81,7 @@ class Loop:
 
     Attributes:
         id: Stable id ``"loop-{12 hex}"``.
-        loop_type: ``"track"`` (running track).
+        loop_type: ``"track"`` (running track) or ``"circuit"`` (network loop).
         coords: ``(N, 2)`` closed ring in Lambert-93.
         length_m: Measured length of the ring.
         lap_m: Standard lap length the ring matches, or ``None``.
@@ -91,7 +91,11 @@ class Loop:
         access: ``public``, ``restricted`` or ``unknown``.
         opening_hours: Raw ``opening_hours`` of the track or its facility.
         indoor: Covered track.
-        osm_id: OSM object of the track.
+        osm_id: OSM object of the track; for a circuit, the park or lake it
+            goes round, else its longest way.
+        setting: Circuits only: ``water``, ``park`` or ``neighbourhood``.
+        n_crossings: Circuits only: roads joining the circuit.
+        grade_max_pct: Circuits only: largest local grade along it.
     """
 
     id: str
@@ -106,6 +110,9 @@ class Loop:
     opening_hours: str | None
     indoor: bool
     osm_id: str
+    setting: str | None = None
+    n_crossings: int | None = None
+    grade_max_pct: float | None = None
 
     @property
     def kind(self) -> str:

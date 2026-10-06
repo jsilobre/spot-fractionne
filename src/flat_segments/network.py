@@ -63,6 +63,7 @@ class Way:
         lit: Raw ``lit`` tag.
         structure: ``"bridge"``, ``"tunnel"`` or ``None``.
         name: Raw ``name`` tag.
+        footway: Raw ``footway`` tag (``sidewalk``: along a road).
     """
 
     id: int
@@ -75,6 +76,7 @@ class Way:
     lit: str | None = None
     structure: str | None = None
     name: str | None = None
+    footway: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,7 +138,9 @@ class Stroke:
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class _Edge:
+class Edge:
+    """A piece of way between two network nodes (shared, barrier or end)."""
+
     way: Way
     start_node: int
     end_node: int
@@ -148,12 +152,12 @@ class _Edge:
 _End = tuple[int, int]
 
 
-def _split_ways(ways: Sequence[Way], barrier_nodes: set[int]) -> list[_Edge]:
+def split_ways(ways: Sequence[Way], barrier_nodes: set[int]) -> list[Edge]:
     """Split support ways at shared nodes, barrier nodes and self-intersections."""
     usage: Counter[int] = Counter()
     for way in ways:
         usage.update(way.node_ids)
-    edges: list[_Edge] = []
+    edges: list[Edge] = []
     for way in ways:
         ids = way.node_ids
         cuts = [0]
@@ -163,11 +167,11 @@ def _split_ways(ways: Sequence[Way], barrier_nodes: set[int]) -> list[_Edge]:
             coords = dedupe_vertices(way.coords[a : b + 1])
             length = polyline_length(coords)
             if length > 0:
-                edges.append(_Edge(way, ids[a], ids[b], coords, length))
+                edges.append(Edge(way, ids[a], ids[b], coords, length))
     return edges
 
 
-def _end_bearing(edge: _Edge, end: int, probe_m: float) -> float:
+def _end_bearing(edge: Edge, end: int, probe_m: float) -> float:
     """Bearing of an edge leaving the node at its ``end``."""
     coords = edge.coords if end == 0 else edge.coords[::-1]
     target = interpolate_at(coords, [min(probe_m, edge.length)])[0]
@@ -175,7 +179,7 @@ def _end_bearing(edge: _Edge, end: int, probe_m: float) -> float:
 
 
 def _pair_ends(
-    edges: Sequence[_Edge],
+    edges: Sequence[Edge],
     incidence: dict[int, list[_End]],
     barrier_nodes: set[int],
     params: NetworkParams,
@@ -254,7 +258,7 @@ def _assemble(
     stroke_id: str,
     sequence: list[tuple[int, bool]],
     is_ring: bool,
-    edges: Sequence[_Edge],
+    edges: Sequence[Edge],
     incidence: dict[int, list[_End]],
 ) -> Stroke:
     """Concatenate edges into a stroke with its parts and events."""
@@ -299,7 +303,7 @@ def build_strokes(ways: Iterable[Way], params: NetworkParams | None = None) -> l
     all_ways = list(ways)
     barrier_nodes = {n for w in all_ways if w.road_class is RoadClass.MAJOR for n in w.node_ids}
     support = [w for w in all_ways if w.road_class is not RoadClass.MAJOR]
-    edges = _split_ways(support, barrier_nodes)
+    edges = split_ways(support, barrier_nodes)
     incidence: dict[int, list[_End]] = defaultdict(list)
     for index, edge in enumerate(edges):
         incidence[edge.start_node].append((index, 0))
