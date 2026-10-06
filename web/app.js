@@ -104,13 +104,27 @@ const formatLength = (m) => (m >= 1000 ? `${fmt(m / 1000, 2)} km` : `${fmt(m)} m
 
 const kindLabel = (kind) => ({ flat: "Plat", climb: "Côte", loop: "Piste" })[kind] ?? kind;
 
-/** Lap of a loop: its standard length, else "about" its measured length. */
-const formatLap = (p) => (p.lap_m != null ? formatLength(p.lap_m) : `environ ${formatLength(p.length_m)}`);
+/** Circuits of the network, by setting. */
+const SETTING_LABELS = { water: "Tour de lac", park: "Tour de parc", neighbourhood: "Boucle de quartier" };
+
+const isCircuit = (p) => p.kind === "loop" && p.loop_type === "circuit";
+
+/** "Piste", "Tour de lac"... */
+const loopLabel = (p) => (isCircuit(p) ? (SETTING_LABELS[p.setting] ?? "Boucle") : kindLabel(p.kind));
+
+/** Lap of a loop: a track's standard length, else "about" its measured length; a circuit's length. */
+const formatLap = (p) => {
+  if (isCircuit(p)) return formatLength(p.length_m);
+  return p.lap_m != null ? formatLength(p.lap_m) : `environ ${formatLength(p.length_m)}`;
+};
+
+const crossings = (n) => `${fmt(n)} traversée${n > 1 ? "s" : ""}`;
 
 function titleOf(properties) {
   const p = properties;
   if (p.name) return p.name;
-  return `${kindLabel(p.kind)} de ${p.kind === "loop" ? formatLap(p) : formatLength(p.length_m)}`;
+  if (p.kind === "loop") return `${loopLabel(p)} de ${formatLap(p)}`;
+  return `${kindLabel(p.kind)} de ${formatLength(p.length_m)}`;
 }
 
 function escapeHtml(text) {
@@ -127,12 +141,21 @@ function laps(p, distanceM) {
 }
 
 function loopPopupHtml(p, distanceM) {
-  const rows = [
-    ["Tour", formatLap(p)],
-    ["Longueur mesurée", formatLength(p.length_m)],
-    ["Pour 1 km / 5 km", `${laps(p, 1000)} / ${laps(p, 5000)}`],
-    ["Accès", ACCESS_LABELS[p.access] ?? p.access],
-  ];
+  const circuit = isCircuit(p);
+  const rows = circuit
+    ? [
+        ["Type", loopLabel(p)],
+        ["Tour", formatLap(p)],
+        ["Pour 1 km / 5 km", `${laps(p, 1000)} / ${laps(p, 5000)}`],
+        ["Traversées de rue", fmt(p.n_crossings)],
+        ["Pente locale max", `${fmt(p.grade_max_pct, 1)} %`],
+      ]
+    : [
+        ["Tour", formatLap(p)],
+        ["Longueur mesurée", formatLength(p.length_m)],
+        ["Pour 1 km / 5 km", `${laps(p, 1000)} / ${laps(p, 5000)}`],
+        ["Accès", ACCESS_LABELS[p.access] ?? p.access],
+      ];
   if (p.opening_hours) rows.push(["Horaires (OSM)", p.opening_hours]);
   rows.push(["Revêtement", SURFACE_LABELS[p.surface] ?? p.surface], ["Éclairage", LIT_LABELS[p.lit] ?? p.lit]);
   if (distanceM !== null && distanceM !== undefined) rows.push(["Distance", formatLength(distanceM)]);
@@ -147,7 +170,7 @@ function loopPopupHtml(p, distanceM) {
     ${p.indoor ? `<p class="hint">Piste couverte</p>` : ""}
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
     ${osmLink}
-    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette piste</a></p>
+    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette ${circuit ? "boucle" : "piste"}</a></p>
   </div>`;
 }
 
@@ -488,15 +511,17 @@ function renderResults() {
     button.type = "button";
     button.className = p.kind;
     let meta;
-    if (p.kind === "loop") {
-      meta = [`tour de ${formatLap(p)}`, `accès ${ACCESS_LABELS[p.access] ?? p.access}`];
+    if (isCircuit(p)) {
+      meta = [loopLabel(p).toLowerCase(), formatLap(p), crossings(p.n_crossings)];
+    } else if (p.kind === "loop") {
+      meta = [`piste, tour de ${formatLap(p)}`, `accès ${ACCESS_LABELS[p.access] ?? p.access}`];
       if (p.indoor) meta.push("couverte");
     } else {
       const grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
       meta = [
         formatLength(p.length_m),
         grade,
-        `${fmt(p.n_crossings)} traversée${p.n_crossings > 1 ? "s" : ""}`,
+        crossings(p.n_crossings),
         `score ${fmt(p.score)}`,
       ];
     }

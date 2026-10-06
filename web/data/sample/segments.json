@@ -6,7 +6,7 @@
   "Données fictives générées par scripts/make_sample_data.py"
  ],
  "bounds": [
-  1.51982,
+  1.51975,
   43.52593,
   1.55158,
   43.53742
@@ -14,7 +14,7 @@
  "counts": {
   "flat": 8,
   "climb": 2,
-  "loop": 2
+  "loop": 4
  },
  "tiles": {
   "url": "segments.pmtiles",
