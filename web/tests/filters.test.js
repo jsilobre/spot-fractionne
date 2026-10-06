@@ -10,6 +10,7 @@ import {
   featuresBounds,
   filterSegments,
   haversineMeters,
+  loopType,
   distanceToGeometryMeters,
   isLoop,
   mapFilter,
@@ -70,6 +71,18 @@ test("loop criteria: every track of the kind, or only public ones", () => {
   assert.equal(matches({ ...loop, access: "public" }, { ...loops, publicOnly: true }), true);
   assert.equal(matches(loop, DEFAULT_CRITERIA), false);
   assert.equal(evaluate(overviewFilter(loops), { kind: "loop", length_m: 199 }), true);
+});
+
+test("loop types: tracks, and circuits by setting", () => {
+  const track = { kind: "loop", access: "unknown" };
+  const lake = { kind: "loop", loop_type: "circuit", setting: "water", access: "public" };
+  const loops = { ...DEFAULT_CRITERIA, kind: "loop" };
+  assert.equal(loopType(track), "track");
+  assert.equal(loopType(lake), "water");
+  assert.equal(matches(lake, loops), true);
+  assert.equal(matches(lake, { ...loops, loopTypes: ["track"] }), false);
+  assert.equal(matches(track, { ...loops, loopTypes: ["track"] }), true);
+  assert.equal(matches(lake, { ...loops, publicOnly: true }), true); // circuits are public
 });
 
 test("loops have no score: sorting by score keeps them last, nearest first", () => {
@@ -185,6 +198,10 @@ function evaluate(expression, properties) {
     const [input, labels, then, otherwise] = args;
     return labels.includes(value(input)) ? then : otherwise;
   }
+  if (op === "case") {
+    const [condition, then, otherwise] = args;
+    return value(condition) ? value(then) : value(otherwise);
+  }
   if (op === "all") return args.every((a) => value(a));
   if (op === "any") return args.some((a) => value(a));
   const [a, b] = args.map(value);
@@ -200,12 +217,17 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { id: "e", kind: "climb", length_m: 300, grade_mean_pct: 8, n_crossings: 1, surface: "unknown" },
     { id: "f", kind: "loop", length_m: 199, access: "public", surface: "unknown" },
     { id: "g", kind: "loop", length_m: 398, access: "unknown", surface: "paved" },
+    { id: "h", kind: "loop", loop_type: "circuit", setting: "water", length_m: 800, access: "public" },
+    { id: "i", kind: "loop", loop_type: "circuit", setting: "park", length_m: 500, access: "public" },
   ];
   const variants = [
     { ...DEFAULT_CRITERIA },
     { ...DEFAULT_CRITERIA, kind: "climb" },
     { ...DEFAULT_CRITERIA, kind: "loop" },
     { ...DEFAULT_CRITERIA, kind: "loop", publicOnly: true, noCrossing: true, pavedOnly: true, minLengthM: 1000 },
+    { ...DEFAULT_CRITERIA, kind: "loop", loopTypes: ["track", "park"] },
+    { ...DEFAULT_CRITERIA, kind: "loop", loopTypes: ["water"], publicOnly: true },
+    { ...DEFAULT_CRITERIA, kind: "loop", loopTypes: [] },
     { ...DEFAULT_CRITERIA, noCrossing: true, pavedOnly: true, maxLocalGradePct: 3, minLengthM: 100 },
     { ...DEFAULT_CRITERIA, kind: "climb", minMeanGradePct: 5, maxMeanGradePct: 10 },
   ];

@@ -14,7 +14,16 @@ export const DEFAULT_CRITERIA = Object.freeze({
   noCrossing: false,
   pavedOnly: false,
   publicOnly: false,
+  loopTypes: Object.freeze(["track", "water", "park", "neighbourhood"]),
 });
+
+/**
+ * Type of a loop shown by the type filter: `track` (running track), or the
+ * setting of a network circuit (`water`, `park`, `neighbourhood`).
+ */
+export function loopType(properties) {
+  return properties.loop_type === "circuit" ? properties.setting : "track";
+}
 
 /** Kinds of results: flat segments, climbs and loops (running tracks). */
 export const KINDS = Object.freeze(["flat", "climb", "loop"]);
@@ -80,8 +89,10 @@ export function distanceToGeometryMeters(point, geometry) {
 export function matches(properties, criteria) {
   const p = properties;
   if (p.kind !== criteria.kind) return false;
-  // A loop is a whole track: length, crossings, surface and grades do not apply.
-  if (p.kind === "loop") return !criteria.publicOnly || p.access === "public";
+  // A loop is whole: length, crossings, surface and grades do not apply.
+  if (p.kind === "loop") {
+    return criteria.loopTypes.includes(loopType(p)) && (!criteria.publicOnly || p.access === "public");
+  }
   if (p.length_m < criteria.minLengthM) return false;
   if (criteria.noCrossing && p.n_crossings > 0) return false;
   if (criteria.pavedOnly && p.surface !== "paved") return false;
@@ -110,6 +121,8 @@ export function mapFilter(criteria, pinnedId = null, ids = null) {
   const get = (key) => ["get", key];
   const conditions = [["==", get("kind"), criteria.kind]];
   if (criteria.kind === "loop") {
+    const type = ["case", ["==", get("loop_type"), "circuit"], get("setting"), "track"];
+    conditions.push(criteria.loopTypes.length ? ["match", type, [...criteria.loopTypes], true, false] : false);
     if (criteria.publicOnly) conditions.push(["==", get("access"), "public"]);
   } else {
     conditions.push([">=", get("length_m"), criteria.minLengthM]);
