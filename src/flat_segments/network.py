@@ -14,6 +14,7 @@ from collections import Counter, defaultdict, deque
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -26,6 +27,9 @@ from flat_segments.geometry import (
     polyline_length,
 )
 from flat_segments.params import NetworkParams
+
+if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
 
 
 class RoadClass(StrEnum):
@@ -150,6 +154,47 @@ class Edge:
 
 # An edge end: (edge index, 0 = start / 1 = end).
 _End = tuple[int, int]
+
+
+def drop_ways_inside(
+    ways: Sequence[Way],
+    areas: Sequence[BaseGeometry],
+    max_inside: float,
+    keep: Iterable[int] = (),
+) -> list[Way]:
+    """Remove the support ways lying mostly inside one of ``areas``.
+
+    Used for the areas closed to the public, such as aerodromes
+    (docs/algorithm.md section 1), whose service roads look like any other.
+
+    Args:
+        ways: Ways in Lambert-93.
+        areas: Polygons in Lambert-93.
+        max_inside: Largest share of a way's length (0 to 1) that may lie
+            inside one area; a way above it is removed.
+        keep: Ids of ways never removed (explicitly open to pedestrians).
+            MAJOR roads are never removed either: they stay barriers.
+
+    Returns:
+        The other ways, in their input order.
+    """
+    import shapely
+
+    kept_ids = set(keep)
+    candidates = [
+        i
+        for i, way in enumerate(ways)
+        if way.road_class is not RoadClass.MAJOR and way.id not in kept_ids
+    ]
+    if not areas or not candidates:
+        return list(ways)
+    lines = shapely.linestrings([ways[i].coords for i in candidates])
+    tree = shapely.STRtree(list(areas))
+    line_index, area_index = tree.query(lines, predicate="intersects")
+    inside = shapely.intersection(lines[line_index], tree.geometries[area_index])
+    share = shapely.length(inside) / np.maximum(shapely.length(lines[line_index]), 1e-9)
+    dropped = {candidates[i] for i in line_index[share > max_inside]}
+    return [way for i, way in enumerate(ways) if i not in dropped]
 
 
 def split_ways(ways: Sequence[Way], barrier_nodes: set[int]) -> list[Edge]:

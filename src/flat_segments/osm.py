@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Final, NamedTuple
 import numpy as np
 
 from flat_segments.geometry import FloatArray, Projector, make_projector
-from flat_segments.network import RoadClass, Way
+from flat_segments.network import RoadClass, Way, drop_ways_inside
 from flat_segments.params import WORK_CRS
 
 if TYPE_CHECKING:
@@ -109,7 +109,10 @@ USED_TAGS: Final = (
     "covered",
     "layer",
     "name",
+    "aeroway",
 )
+#: Share of a support way's length inside an aerodrome above which it is ignored.
+AERODROME_MAX_INSIDE: Final = 0.5
 
 
 def classify_way(tags: Mapping[str, str]) -> RoadClass | None:
@@ -134,6 +137,7 @@ def classify_way(tags: Mapping[str, str]) -> RoadClass | None:
         or foot in NO_FOOT
         or (tags.get("access") in NO_ACCESS and foot not in FOOT_ALLOWED)
         or tags.get("oneway:foot") == "yes"
+        or "aeroway" in tags
     ):
         return None
     return road_class
@@ -284,15 +288,43 @@ def read_ways(
         area: WGS84 polygon; ways with at least one node inside are kept whole.
 
     Returns:
-        Ways in file order, including MAJOR roads (used as barriers).
+        Ways in file order, including MAJOR roads (used as barriers), without
+        the support ways lying mostly inside an aerodrome unless they are
+        open to pedestrians (``foot=yes``…). The aerodromes are read from the
+        same file: a file cut by :func:`clip_osm` has none.
     """
+    from shapely.geometry import Polygon
+
     project = project or make_projector("EPSG:4326", WORK_CRS)
     ways: list[Way] = []
+    open_to_foot: list[int] = []
     for raw in iter_relevant_ways(path, bbox, area):
         way = way_from_osm(raw.id, raw.node_ids, project(raw.lonlat), raw.tags)
         if way is not None:
             ways.append(way)
-    return ways
+            if raw.tags.get("foot") in FOOT_ALLOWED:
+                open_to_foot.append(way.id)
+    aerodromes = [
+        Polygon(project(ring), [project(hole)] if hole is not None else []).buffer(0)
+        for raw in iter_aerodromes(path, bbox, area)
+        for ring, hole in zip(raw.rings, raw.holes, strict=True)
+    ]
+    return drop_ways_inside(ways, aerodromes, AERODROME_MAX_INSIDE, keep=open_to_foot)
+
+
+def iter_aerodromes(
+    path: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> Iterator[RawArea]:
+    """Stream the ``aeroway=aerodrome`` areas (airports and airfields).
+
+    Their service roads, runways' edges and aprons are closed to the public
+    but rarely tagged so. Arguments as :func:`iter_sport_areas`.
+    """
+    for raw in _iter_areas(path, ("aeroway",), ("aeroway",), bbox, area):
+        if raw.tags.get("aeroway") == "aerodrome":
+            yield raw
 
 
 def len_of(ring: FloatArray) -> float:
