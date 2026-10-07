@@ -188,7 +188,10 @@ def drop_ways_inside(
     ]
     if not areas or not candidates:
         return list(ways)
-    lines = shapely.linestrings([ways[i].coords for i in candidates])
+    lines = shapely.linestrings(
+        np.vstack([ways[i].coords for i in candidates]),
+        indices=np.repeat(np.arange(len(candidates)), [len(ways[i].coords) for i in candidates]),
+    )
     tree = shapely.STRtree(list(areas))
     line_index, area_index = tree.query(lines, predicate="intersects")
     inside = shapely.intersection(lines[line_index], tree.geometries[area_index])
