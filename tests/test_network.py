@@ -134,7 +134,7 @@ def test_ways_mostly_inside_an_area_are_dropped() -> None:
 
     airport = box(0, 0, 1000, 500)
     ways = [
-        make_way(1, [(100, 100), (900, 100)]),  # service road along the runway
+        make_way(1, [(100, 100), (500, 110), (900, 100)]),  # service road along the runway
         make_way(2, [(-300, 600), (1300, 600)]),  # public road outside the fence
         make_way(3, [(-700, 250), (300, 250)]),  # 30 % inside
         make_way(4, [(100, 300), (900, 300)], road_class=RoadClass.MAJOR),
