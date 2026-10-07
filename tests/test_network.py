@@ -1,6 +1,6 @@
 import pytest
 
-from flat_segments.network import EventKind, RoadClass, Stroke, build_strokes
+from flat_segments.network import EventKind, RoadClass, Stroke, build_strokes, drop_ways_inside
 from flat_segments.params import NetworkParams
 from tests.helpers import make_way
 
@@ -127,3 +127,19 @@ def test_structures_and_ids() -> None:
     assert start == pytest.approx(100)
     assert end == pytest.approx(140)
     assert kind == "bridge"
+
+
+def test_ways_mostly_inside_an_area_are_dropped() -> None:
+    from shapely.geometry import box
+
+    airport = box(0, 0, 1000, 500)
+    ways = [
+        make_way(1, [(100, 100), (900, 100)]),  # service road along the runway
+        make_way(2, [(-300, 600), (1300, 600)]),  # public road outside the fence
+        make_way(3, [(-700, 250), (300, 250)]),  # 30 % inside
+        make_way(4, [(100, 300), (900, 300)], road_class=RoadClass.MAJOR),
+        make_way(5, [(100, 400), (900, 400)]),  # explicitly open to pedestrians
+    ]
+    kept = drop_ways_inside(ways, [airport], 0.5, keep=[5])
+    assert [w.id for w in kept] == [2, 3, 4, 5]
+    assert drop_ways_inside(ways, [], 0.5) == ways

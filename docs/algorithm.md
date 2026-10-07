@@ -50,7 +50,16 @@ vraie (on doit pouvoir y courir en aller-retour) :
 - `foot` ∈ {`no`, `private`, `use_sidepath`} ;
 - `access` ∈ {`private`, `no`, `agricultural`, `forestry`, `delivery`, `military`},
   sauf si `foot` ∈ {`yes`, `designated`, `permissive`} ;
-- `oneway:foot=yes`.
+- `oneway:foot=yes` ;
+- un tag `aeroway` (voie de circulation d'aéroport tracée aussi en `highway`).
+
+Les aéroports et aérodromes (zones `aeroway=aerodrome`) sont fermés au public,
+mais leurs routes de service, le long des pistes, sont rarement taguées comme
+telles. Une voie `MINOR` ou `PATH` dont plus de la moitié de la longueur
+(`osm.AERODROME_MAX_INSIDE`) est dans une de ces zones est donc exclue, sauf si
+`foot` ∈ {`yes`, `designated`, `permissive`}. Les routes publiques qui longent la
+clôture restent en dehors de la zone et sont conservées. Cette règle vaut pour
+tout le réseau : plats, côtes et boucles du réseau.
 
 Les voies `MAJOR` sont conservées quels que soient leurs tags d'accès : même
 privée, une route importante reste une barrière.

@@ -24,6 +24,7 @@ from flat_segments.network import RoadClass
         ({"highway": "cycleway", "foot": "no"}, None),
         ({"highway": "pedestrian", "area": "yes"}, None),
         ({"highway": "footway", "oneway:foot": "yes"}, None),
+        ({"highway": "service", "aeroway": "taxiway"}, None),
     ],
 )
 def test_classify_way(tags: dict[str, str], expected: RoadClass | None) -> None:
@@ -139,6 +140,46 @@ def test_read_ways_without_bbox_keeps_everything_relevant(tmp_path: Path) -> Non
     path = tmp_path / "sample.osm"
     path.write_text(OSM_XML)
     assert [w.id for w in osm.read_ways(path)] == [10, 11, 13]
+
+
+AERODROME_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="test">
+  <node id="1" lat="43.6200" lon="1.3500" version="1"/>
+  <node id="2" lat="43.6200" lon="1.3700" version="1"/>
+  <node id="3" lat="43.6400" lon="1.3700" version="1"/>
+  <node id="4" lat="43.6400" lon="1.3500" version="1"/>
+  <node id="5" lat="43.6300" lon="1.3550" version="1"/>
+  <node id="6" lat="43.6300" lon="1.3650" version="1"/>
+  <node id="7" lat="43.6350" lon="1.3550" version="1"/>
+  <node id="8" lat="43.6350" lon="1.3650" version="1"/>
+  <node id="9" lat="43.6450" lon="1.3500" version="1"/>
+  <node id="10" lat="43.6450" lon="1.3700" version="1"/>
+  <way id="20" version="1">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="aeroway" v="aerodrome"/><tag k="name" v="Aéroport"/>
+  </way>
+  <way id="21" version="1">
+    <nd ref="5"/><nd ref="6"/>
+    <tag k="highway" v="service"/>
+  </way>
+  <way id="22" version="1">
+    <nd ref="7"/><nd ref="8"/>
+    <tag k="highway" v="footway"/><tag k="foot" v="designated"/>
+  </way>
+  <way id="23" version="1">
+    <nd ref="9"/><nd ref="10"/>
+    <tag k="highway" v="cycleway"/>
+  </way>
+</osm>
+"""
+
+
+def test_read_ways_drops_the_service_roads_of_an_aerodrome(tmp_path: Path) -> None:
+    path = tmp_path / "airport.osm"
+    path.write_text(AERODROME_XML)
+    # 21 runs inside the aerodrome; 22 too but is open to pedestrians; 23 is outside.
+    assert [w.id for w in osm.read_ways(path)] == [22, 23]
+    assert [a.osm_id for a in osm.iter_aerodromes(path)] == ["way/20"]
 
 
 def test_clip_osm_keeps_what_read_ways_needs(tmp_path: Path) -> None:
