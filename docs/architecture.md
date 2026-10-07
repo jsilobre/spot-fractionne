@@ -235,6 +235,9 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
     fiche.
   - L'URL suit la sélection, ce qui sert à partager un segment et à la fiche
     de validation terrain.
+- `analytics.js` : comptage des visites avec GoatCounter (compte
+  `spot-fractionne`, sans cookie ni donnée personnelle ; script copié dans
+  `vendor/`). Le chemin compté garde `id` et `kind`, jamais la position.
 - **Publication** : le workflow `.github/workflows/pages.yml` déploie `web/`
   (sans les tests) sur GitHub Pages à chaque modification sur `main`, avec
   les données de la release `data-latest` quand elle existe
