@@ -385,4 +385,33 @@ recalés à l'échelle régionale.
 | Trottoirs cartographiés en double | Un trottoir `footway=sidewalk` et sa rue donnent deux segments quasi identiques | Déduplication géométrique (§ 9 de l'algorithme) |
 | Routes ≥ `tertiary` avec trottoir non cartographié séparément | Tronçon ignoré, alors qu'il serait praticable | Limite assumée au prototype |
 | Voies de service dans les parkings | Une voie `highway=service` sans `service=parking_aisle` qui traverse un parking donne un segment non praticable, et le cheminement piéton qui la longe passe pour un doublon (validation terrain, campagne 1) | Limite connue. Piste : exclure les voies `service` situées dans une zone `amenity=parking` |
+| Routes de service des aéroports | Des voies `highway=service` sans tag d'accès, le long des pistes, donnent des segments inaccessibles (Toulouse-Blagnac, octobre 2026) | Voies `MINOR` et `PATH` à plus de 50 % dans une zone `aeroway=aerodrome` exclues, sauf `foot=yes` (§ 1 de l'algorithme) |
 | Données figées | Chantier récent, nouvelle voie verte… | Date de l'extrait OSM et du MNT dans les métadonnées de l'export |
+
+## 8. Exploitation : corriger sans tout recalculer
+
+Une correction qui change le choix des voies (`osm.read_ways`) touche la
+première étape : sans autre outil, elle impose un calcul national complet
+(environ 8 h en octobre 2026, dont le téléchargement du MNT). C'est ce qui a
+été fait pour les routes d'aéroport (PR #33 et #34, lancement 16).
+
+Quand la correction **retire** seulement des voies (aéroports, terrains
+militaires, voies privées mal taguées…), une voie plus courte est possible.
+Elle n'est pas encore écrite.
+
+1. Une commande (par exemple `flat-segments prune`) relit le seul extrait OSM
+   de chaque département (quelques secondes), liste les voies que la nouvelle
+   règle exclut, et retire de `segments.parquet`, `loops.parquet` et
+   `circuits.parquet` tout segment ou boucle dont `osm_way_ids` en contient
+   une. Ni MNT, ni profils, ni détection.
+2. Une option du workflow Production applique cette commande aux départements
+   d'un lancement précédent, puis assemble et publie comme `reuse_run`
+   (les artefacts de département sont gardés 7 jours). Compter l'assemblage,
+   environ 1 h 15 au lieu de 8 h.
+
+Le résultat est presque celui d'un recalcul complet. Seuls les compteurs de
+traversées (`n_crossings`) d'un segment qui croisait une voie retirée sans
+l'emprunter restent comptés, et un stroke coupé par la voie retirée n'est pas
+prolongé. Une correction qui **ajoute** des voies ou change la détection
+demande toujours un recalcul.
+
