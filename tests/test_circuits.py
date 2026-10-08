@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -186,6 +187,24 @@ def test_select_keeps_flat_circuits_one_per_spot_and_size() -> None:
     assert loop.id.startswith("loop-")
 
 
+def test_select_prefers_the_flatter_circuit_of_a_spot() -> None:
+    x, y = ORIGIN
+    found = find_candidates([*square_ways(1, x, y, 150.0), *square_ways(11, x + 160, y, 150.0)], [])
+    assert len(found) == 2
+    for steep in (0, 1):
+        grades = [4.0 if i == steep else 1.5 for i in range(2)]
+        [loop] = select_circuits(found, grades)
+        assert loop.grade_max_pct == 1.5
+    assert [len(select_circuits(found, [g, g])) for g in (4.8, 5.2)] == [1, 0]
+
+
+@pytest.mark.parametrize(
+    ("grade", "band"), [(0.3, 0), (2.0, 0), (2.01, 1), (2.5, 1), (2.51, 2), (5.0, 6)]
+)
+def test_grade_band(grade: float, band: int) -> None:
+    assert circuits.grade_band(grade) == band
+
+
 def test_circuit_fields_round_trip(tmp_path: Path) -> None:
     x, y = ORIGIN
     found = find_candidates(square_ways(1, x, y, 150.0, surface="asphalt", lit="yes"), [])
@@ -238,6 +257,29 @@ def test_department_keeps_the_flat_circuits_inside(tmp_path: Path) -> None:
     assert circuit.length_m == pytest.approx(600, abs=1)
     assert not paths.dem_dir.exists()
     assert "| 1 | " in batch.summary_table({"31": state})
+
+
+def test_circuits_redone_from_the_published_files_only(tmp_path: Path) -> None:
+    """As the Production workflow with circuits_run: the artifact of a run, minus circuits."""
+    pbf = tmp_path / "region.osm"
+    pbf.write_text(osm_with_parks())
+    outlines = tmp_path / "departements.geojson"
+    outlines.write_bytes(collection(("31", "Test", mapping(OUTLINE))))
+    web = FakeWeb({download.WMS_URL: gentle_wms})
+    state = run((pbf, outlines), tmp_path / "out", web)
+    paths = batch.department_paths(tmp_path / "out" / "31")
+    kept = {paths.segments, paths.loops, paths.circuits, paths.params, paths.state}
+    for path in paths.root.rglob("*"):
+        if path.is_file() and path not in kept:
+            path.unlink()
+    segments = paths.segments.read_bytes()
+    del state["steps"]["circuits"]
+    paths.state.write_text(json.dumps(state))
+    again = run((pbf, outlines), tmp_path / "out", web)
+    assert again["steps"]["circuits"]["circuits"] == 1
+    assert again["steps"]["segments"] == state["steps"]["segments"]
+    assert paths.segments.read_bytes() == segments
+    assert len(read_loops(paths.circuits)) == 1
 
 
 def test_circuits_are_published_with_their_segments(tmp_path: Path) -> None:

@@ -203,7 +203,7 @@ def run_circuits(
     candidates = find_candidates(read_ways(pbf, bbox), read_setting_areas(pbf, bbox))
     fallback = fallback_vrt_path(dem)
     grades = circuit_grades(candidates, dem, params, fallback if fallback.exists() else None)
-    circuits = select_circuits(candidates, grades, params.detection.flat.max_local_grade_pct)
+    circuits = select_circuits(candidates, grades)
     write_loops(circuits, out)
     return len(candidates), len(circuits)
 

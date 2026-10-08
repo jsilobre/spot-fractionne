@@ -115,7 +115,7 @@
 
         <label class="check" data-kind="flat climb"><input id="no-crossing" type="checkbox" /> Sans traversée de route</label>
         <label class="check" data-kind="flat climb"><input id="paved-only" type="checkbox" /> Revêtement asphalte / béton</label>
-        <p class="hint" data-kind="loop" hidden>Pistes d'athlétisme, et boucles plates autour d'un parc, d'un lac ou d'un quartier sans voitures (200 m à 2 km), d'après OpenStreetMap.</p>
+        <p class="hint" data-kind="loop" hidden>Pistes d'athlétisme, et boucles autour d'un parc, d'un lac ou d'un quartier sans voitures (200 m à 2 km), d'après OpenStreetMap.</p>
         <fieldset class="check-row" data-kind="loop" hidden>
           <legend class="sr-only">Types de boucles</legend>
           <label class="check"><input name="loop-type" type="checkbox" value="track" checked /> Pistes</label>
@@ -123,6 +123,10 @@
           <label class="check"><input name="loop-type" type="checkbox" value="water" checked /> Lacs</label>
           <label class="check"><input name="loop-type" type="checkbox" value="neighbourhood" checked /> Quartiers</label>
         </fieldset>
+        <label class="field" for="max-loop-grade" data-kind="loop" hidden>
+          <span>Pente locale max <output id="max-loop-grade-value"></output></span>
+          <input id="max-loop-grade" type="range" min="1" max="5" step="0.5" value="5" />
+        </label>
         <label class="check" data-kind="loop" hidden><input id="public-only" type="checkbox" /> Accès libre seulement</label>
       </section>
 

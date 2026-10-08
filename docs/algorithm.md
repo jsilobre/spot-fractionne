@@ -524,7 +524,9 @@ le réseau lui-même, autour d'un parc, d'un lac ou d'un pâté de maisons sans
 voitures. Module `circuits.py`, commande `circuits`, étape `circuits` d'un
 département. Choix de Jérémy (06/10/2026) : les tours de parcs et de lacs
 **et** les boucles de quartier sans voitures, de 200 m à 2 km, plates
-seulement.
+seulement. Le 08/10/2026, la limite de pente devient un réglage du site
+(comme la pente locale max des plats) : le tour du lac de Labège (1,2 km,
+3,6 m de dénivelé en tout) était écarté pour une rampe courte à 4,8 %.
 
 **Graphe.** Les voies support (§ 1, MINOR et PATH) découpées à chaque nœud
 partagé, comme pour les strokes (`network.split_ways`). Les nœuds des routes
@@ -577,7 +579,8 @@ une traversée, d'au moins 400 m et d'une compacité d'au moins 0,4.
 mêmes paramètres, ponts et tunnels interpolés), et on lit le tour du milieu,
 pour que le lissage et le comblement des trous voient une boucle sans
 début ni fin. La pente locale maximale (`grade_max_pct`) doit rester sous
-`flat.max_local_grade_pct` (2 %). Une boucle dont une partie reste sans
+5 % (`MAX_GRADE_PCT`) ; le site laisse choisir une limite plus basse
+(1 à 5 %, par pas de 0,5 %). Une boucle dont une partie reste sans
 altitude après comblement est écartée. Le MNT de secours (RGE ALTI) est lu
 quand le LiDAR HD manque.
 
@@ -586,8 +589,10 @@ quand le LiDAR HD manque.
 de l'autre sont le même lieu. On garde, dans l'ordre : une boucle sans
 traversée, un tour de parc ou de lac plutôt qu'une face, l'eau puis le parc
 puis le quartier, la plus longue. Les boucles imbriquées de tailles
-différentes restent toutes. Ce tri vient après le filtre de pente, pour
-qu'une boucle plate remplace une voisine en pente.
+différentes restent toutes. Ce tri vient après le filtre de pente, et
+passe d'abord par la pente, par tranches : jusqu'à 2 %, puis par pas de
+0,5 % (ceux du réglage du site). Une boucle en pente ne cache donc jamais une
+voisine plus plate qu'une limite plus basse montrerait.
 
 **Attributs.** `surface` et `lit` : la valeur qui couvre le plus de
 longueur. `access` vaut `public`, `lap_m` est nul, `osm_id` désigne le parc
@@ -599,5 +604,5 @@ n'étant pas joignable depuis l'environnement d'essai) : 642 candidates, 506
 boucles après le tri par lieu (225 parcs, 144 lacs, 137 quartiers).
 
 Comme pour les pistes, ces seuils sont des constantes de `circuits.py`, pas
-des paramètres de détection ; seul le seuil de pente reprend
-`flat.max_local_grade_pct`.
+des paramètres de détection, y compris le seuil de pente (`MAX_GRADE_PCT`,
+5 %, distinct de `flat.max_local_grade_pct`).

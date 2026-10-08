@@ -16,6 +16,9 @@ name: Production
 # run (its artifacts are kept 7 days): to republish after a fix in the export.
 # With keep_run, only the listed départements are computed, and the assembly
 # takes the others from that earlier run: to redo a few départements.
+# With circuits_run, the listed départements start from that earlier run and
+# only redo their circuits step (OSM extracts not refreshed, DEM fetched only
+# around the circuits): to republish after a change in circuits.py.
 on:
   workflow_dispatch:
     inputs:
@@ -34,6 +37,9 @@ on:
         default: ""
       keep_run:
         description: "Assemble the départements computed now with the other ones of this earlier run id"
+        default: ""
+      circuits_run:
+        description: "Only redo the circuits of the départements, on top of this earlier run id"
         default: ""
 
 permissions:
@@ -128,16 +134,19 @@ jobs:
           echo "codes=$codes" >> "$GITHUB_OUTPUT"
           echo "Départements: $codes" >> "$GITHUB_STEP_SUMMARY"
       - name: OSM extract of France
+        if: inputs.circuits_run == ''
         run: |
           uv run flat-segments download-osm --url "$OSM_URL" --out-dir "$WORK" --no-clip \
             || uv run flat-segments download-osm --url "$OSM_MIRROR_URL" --out-dir "$WORK" --no-clip
           ls -l "$WORK"
       - name: Number the nodes from 1 (memory of the cut, see osm_extracts.py)
+        if: inputs.circuits_run == ''
         run: |
           france=$(ls "$WORK"/france*.osm.pbf)
           uv run flat-segments renumber-osm "$france" "$WORK/renumbered.osm.pbf"
           rm "$france"
       - name: Cut per département, upload to the release osm-extracts
+        if: inputs.circuits_run == ''
         env:
           CODES: ${{ steps.codes.outputs.codes }}
         run: |
@@ -178,6 +187,14 @@ jobs:
           sudo mkdir -p "$WORK" && sudo chown "$USER" "$WORK"
           gh release download "$EXTRACTS_RELEASE" --dir data/raw --clobber \
             --pattern "$CODE.osm.pbf" --pattern departements.geojson
+      - name: Earlier results, circuits to redo (run ${{ inputs.circuits_run }})
+        if: inputs.circuits_run != ''
+        env:
+          CIRCUITS_RUN: ${{ inputs.circuits_run }}
+        run: |
+          dir="$WORK/departments/$CODE"
+          gh run download "$CIRCUITS_RUN" --name "segments-$CODE" --dir "$dir"
+          jq 'del(.steps.circuits)' "$dir/state.json" > state.json && mv state.json "$dir/state.json"
       - name: Compute the département
         run: |
           uv run flat-segments department "$CODE" --pbf "data/raw/$CODE.osm.pbf" \

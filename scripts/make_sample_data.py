@@ -218,7 +218,7 @@ def main() -> None:
     loops = build_tracks(tracks())
     candidates = find_candidates(ways, settings())
     grades = [max_local_grade(c, dem, params.profile) for c in candidates]
-    circuits = select_circuits(candidates, grades, params.detection.flat.max_local_grade_pct)
+    circuits = select_circuits(candidates, grades)
     write_tileset(
         [*segments, *loops, *circuits],
         OUTPUT,
