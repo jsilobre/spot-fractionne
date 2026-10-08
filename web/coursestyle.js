@@ -8,100 +8,28 @@ const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 const FONT = ["Noto Sans Regular"];
 const FONT_ITALIC = ["Noto Sans Italic"];
 
-/** Colour sets the style can be drawn with; `light` is the one in use. */
-export const COURSE_PALETTES = {
-  // Light and calm, close to the sports-tracking apps.
-  light: {
-    background: "#f4f2ee",
-    residential: "#efece6",
-    park: "#d8ead0",
-    wood: "#cfe3c4",
-    grass: "#e1eed9",
-    pitch: "#cfe6c6",
-    water: "#b9d7ea",
-    waterLine: "#a3c8e0",
-    building: "#e4e0d9",
-    road: "#ffffff",
-    roadCasing: "#d9d5ce",
-    majorRoad: "#ffffff",
-    majorCasing: "#c9c4bb",
-    path: "#7a6a58",
-    cycleway: "#5f7f9c",
-    track: "#9a8a72",
-    rail: "#c4c0b9",
-    label: "#6b6762",
-    labelHalo: "#f4f2ee",
-    waterLabel: "#5a8fb3",
-  },
-  // Dark: the segments glow, the town fades.
-  dark: {
-    background: "#1f2124",
-    residential: "#232528",
-    park: "#26352a",
-    wood: "#25332a",
-    grass: "#2a362c",
-    pitch: "#2d3d30",
-    water: "#1d3447",
-    waterLine: "#284459",
-    building: "#2b2e32",
-    road: "#3a3d42",
-    roadCasing: "#1f2124",
-    majorRoad: "#4a4e54",
-    majorCasing: "#1f2124",
-    path: "#c9b99f",
-    cycleway: "#8fb2cf",
-    track: "#a39782",
-    rail: "#45484d",
-    label: "#a7a9ad",
-    labelHalo: "#1f2124",
-    waterLabel: "#6e9cbd",
-  },
-  // Green: parks and woods first, roads barely there.
-  nature: {
-    background: "#f6f5ef",
-    residential: "#f2f0e9",
-    park: "#bfe0b0",
-    wood: "#a9d39a",
-    grass: "#cfe8c2",
-    pitch: "#b8dca8",
-    water: "#a6d1ef",
-    waterLine: "#8cc0e6",
-    building: "#ebe8e1",
-    road: "#ffffff",
-    roadCasing: "#e3dfd7",
-    majorRoad: "#fbfaf7",
-    majorCasing: "#d6d1c8",
-    path: "#8a4f1d",
-    cycleway: "#8a4f1d",
-    track: "#8a4f1d",
-    rail: "#d0ccc4",
-    label: "#5f5b55",
-    labelHalo: "#f6f5ef",
-    waterLabel: "#3f83b5",
-  },
-  // Greyscale: every colour on screen is a segment.
-  grey: {
-    background: "#f3f3f3",
-    residential: "#efefef",
-    park: "#e2e6e0",
-    wood: "#dbe0d9",
-    grass: "#e6e9e4",
-    pitch: "#dde2db",
-    water: "#d6dde3",
-    waterLine: "#c9d2da",
-    building: "#e6e6e6",
-    road: "#ffffff",
-    roadCasing: "#dcdcdc",
-    majorRoad: "#ffffff",
-    majorCasing: "#cfcfcf",
-    path: "#6e6e6e",
-    cycleway: "#6e6e6e",
-    track: "#8c8c8c",
-    rail: "#cccccc",
-    label: "#777777",
-    labelHalo: "#f3f3f3",
-    waterLabel: "#8a99a6",
-  },
+/** Colours of the style: parks and woods first, paths in brown, roads barely there. */
+export const COURSE_COLORS = {
+  background: "#f6f5ef",
+  residential: "#f2f0e9",
+  park: "#bfe0b0",
+  wood: "#a9d39a",
+  grass: "#cfe8c2",
+  pitch: "#b8dca8",
+  water: "#a6d1ef",
+  waterLine: "#8cc0e6",
+  building: "#ebe8e1",
+  road: "#ffffff",
+  roadCasing: "#e3dfd7",
+  majorRoad: "#fbfaf7",
+  majorCasing: "#d6d1c8",
+  path: "#8a4f1d",
+  cycleway: "#8a4f1d",
+  track: "#8a4f1d",
+  rail: "#d0ccc4",
+  label: "#5f5b55",
+  labelHalo: "#f6f5ef",
+  waterLabel: "#3f83b5",
 };
 
 // Line width growing with the zoom: [zoom, width] stops.
@@ -114,8 +42,8 @@ const isCycleway = ["any", ["==", ["get", "subclass"], "cycleway"], ["==", ["get
 const MINOR = ["minor", "service"];
 const MAJOR = ["motorway", "trunk", "primary", "secondary", "tertiary"];
 
-/** MapLibre style of the "Course" basemap drawn with one of `COURSE_PALETTES`. */
-export function courseStyle(p = COURSE_PALETTES.light) {
+/** MapLibre style of the "Course" basemap, drawn with `p` (`COURSE_COLORS` by default). */
+export function courseStyle(p = COURSE_COLORS) {
   const fill = (id, layer, filter, color, extra = {}) => ({
     id,
     type: "fill",
