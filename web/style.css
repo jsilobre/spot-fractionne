@@ -405,3 +405,16 @@ input[type="range"] {
     min-height: 52vh;
   }
 }
+
+.basemap-control select {
+  display: block;
+  height: 29px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}

@@ -175,8 +175,12 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
 - `index.html`, `style.css` : une page, sans framework ni étape de build.
 - `app.js` : carte MapLibre GL JS (modules ES chargés depuis un CDN par une
   *import map*, versions figées et empreintes SRI : `maplibre-gl`, `pmtiles`,
-  `fflate`), fond vectoriel OpenFreeMap avec repli sur un fond uni, panneau de
+  `fflate`), fond de carte au choix avec repli sur un fond uni, panneau de
   filtres, liste des résultats.
+- `basemaps.js` : fonds de carte proposés par un menu sur la carte (choix
+  gardé dans le `localStorage`) : Plan (vectoriel OpenFreeMap, par défaut),
+  Plan IGN et photos aériennes (WMTS de la Géoplateforme IGN, sans clé),
+  Relief (OpenTopoMap, courbes de niveau).
 - **Position** :
   - géolocalisation de l'appareil ;
   - point placé sur la carte : bouton « Placer sur la carte », puis un clic.
