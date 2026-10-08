@@ -669,6 +669,7 @@ function readControls() {
   c.kind = document.querySelector('input[name="kind"]:checked').value;
   c.minLengthM = Number($("min-length").value);
   c.maxLocalGradePct = Number($("max-local-grade").value);
+  c.maxLoopGradePct = Number($("max-loop-grade").value);
   let lo = Number($("min-mean-grade").value);
   let hi = Number($("max-mean-grade").value);
   if (lo > hi) [lo, hi] = [hi, lo];
@@ -682,6 +683,7 @@ function readControls() {
   state.sortBy = $("sort-by").value;
 
   $("max-local-grade-value").textContent = `${fmt(c.maxLocalGradePct, 1)} %`;
+  $("max-loop-grade-value").textContent = `${fmt(c.maxLoopGradePct, 1)} %`;
   $("mean-grade-value").textContent = `${fmt(lo, 1)} à ${fmt(hi, 1)} %`;
   $("max-distance-value").textContent = `${fmt(c.maxDistanceM / 1000, 1)} km`;
   for (const element of document.querySelectorAll("[data-kind]")) {

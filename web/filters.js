@@ -8,6 +8,7 @@ export const DEFAULT_CRITERIA = Object.freeze({
   kind: "flat",
   minLengthM: 200,
   maxLocalGradePct: 2,
+  maxLoopGradePct: 5,
   minMeanGradePct: 3,
   maxMeanGradePct: 15,
   maxDistanceM: 5000,
@@ -89,9 +90,14 @@ export function distanceToGeometryMeters(point, geometry) {
 export function matches(properties, criteria) {
   const p = properties;
   if (p.kind !== criteria.kind) return false;
-  // A loop is whole: length, crossings, surface and grades do not apply.
+  // A loop is whole: length, crossings, surface and mean grade do not apply.
+  // Only circuits have a local grade (tracks are flat by construction).
   if (p.kind === "loop") {
-    return criteria.loopTypes.includes(loopType(p)) && (!criteria.publicOnly || p.access === "public");
+    return (
+      criteria.loopTypes.includes(loopType(p)) &&
+      (!criteria.publicOnly || p.access === "public") &&
+      (p.loop_type !== "circuit" || p.grade_max_pct <= criteria.maxLoopGradePct)
+    );
   }
   if (p.length_m < criteria.minLengthM) return false;
   if (criteria.noCrossing && p.n_crossings > 0) return false;
@@ -124,6 +130,8 @@ export function mapFilter(criteria, pinnedId = null, ids = null) {
     const type = ["case", ["==", get("loop_type"), "circuit"], get("setting"), "track"];
     conditions.push(criteria.loopTypes.length ? ["match", type, [...criteria.loopTypes], true, false] : false);
     if (criteria.publicOnly) conditions.push(["==", get("access"), "public"]);
+    const gentle = ["<=", get("grade_max_pct"), criteria.maxLoopGradePct];
+    conditions.push(["case", ["==", get("loop_type"), "circuit"], gentle, true]);
   } else {
     conditions.push([">=", get("length_m"), criteria.minLengthM]);
     if (criteria.noCrossing) conditions.push(["==", get("n_crossings"), 0]);

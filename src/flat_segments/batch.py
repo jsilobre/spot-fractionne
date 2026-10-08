@@ -294,7 +294,7 @@ def run_department(
             grades = circuit_grades(
                 candidates, vrt, params, fallback if fallback.exists() else None
             )
-        circuits = select_circuits(candidates, grades, params.detection.flat.max_local_grade_pct)
+        circuits = select_circuits(candidates, grades)
         write_loops(circuits, paths.circuits)
         finish("circuits", start, candidates=len(candidates), circuits=len(circuits))
 

@@ -420,3 +420,10 @@ l'emprunter restent comptés, et un stroke coupé par la voie retirée n'est pas
 prolongé. Une correction qui **ajoute** des voies ou change la détection
 demande toujours un recalcul.
 
+Quand la correction ne touche que les **boucles du réseau** (`circuits.py`),
+l'option `circuits_run` du workflow Production repart des départements d'un
+lancement précédent (artefacts gardés 7 jours) et ne refait que leur étape
+`circuits` : pas de nouvel extrait OSM, et le MNT n'est téléchargé qu'autour
+des boucles candidates. Les segments, profils et pistes restent ceux du
+lancement repris.
+

@@ -24,7 +24,9 @@ quartier sans voitures, de 200 m à 2 km, plates seulement.
   tour), et les faces du réseau, gardées seulement autour de l'eau ou en
   quartier sans voitures.
 - Plat : pente locale maximale sous `flat.max_local_grade_pct`, mesurée sur
-  le MNT des dalles qui touchent les boucles.
+  le MNT des dalles qui touchent les boucles. Révisé le 08/10/2026 : sous
+  5 % (`circuits.MAX_GRADE_PCT`), et le site laisse choisir une limite plus
+  basse, comme pour les plats.
 - Une boucle par lieu et par classe de taille.
 - Même table `loops` et même dataclass `Loop`, avec trois champs facultatifs
   (`setting`, `n_crossings`, `grade_max_pct`), dans un fichier à part

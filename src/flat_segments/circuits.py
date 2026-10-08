@@ -75,6 +75,14 @@ NAME_SHARE: Final = 0.2
 SPACING_M: Final = 100.0
 #: Upper bounds of the size classes (the last one is open).
 SIZE_CLASSES_M: Final = (500.0, 1000.0)
+#: Largest local grade of a published circuit. The site lets the runner pick
+#: a lower limit (a lake lap often has a short ramp up to a road or a bridge).
+MAX_GRADE_PCT: Final = 5.0
+#: Thinning compares grades by band: at most this grade, then by steps of
+#: this width (the steps of the site's slider), so that a steeper circuit never
+#: hides a flatter one that a lower limit would show.
+FLAT_GRADE_PCT: Final = 2.0
+GRADE_BAND_PCT: Final = 0.5
 #: Length over which the direction of a path leaving a node is measured.
 BEARING_PROBE_M: Final = 3.0
 
@@ -523,8 +531,15 @@ def _rank(candidate: Candidate) -> tuple[bool, int, int, float]:
     )
 
 
+def grade_band(grade_pct: float) -> int:
+    """0 up to :data:`FLAT_GRADE_PCT`, then one more per :data:`GRADE_BAND_PCT`."""
+    return max(0, math.ceil(round((grade_pct - FLAT_GRADE_PCT) / GRADE_BAND_PCT, 9)))
+
+
 def select_circuits(
-    candidates: Sequence[Candidate], grades: Sequence[float | None], max_grade_pct: float
+    candidates: Sequence[Candidate],
+    grades: Sequence[float | None],
+    max_grade_pct: float = MAX_GRADE_PCT,
 ) -> list[Loop]:
     """Flat circuits, one per spot and size class.
 
@@ -535,15 +550,15 @@ def select_circuits(
 
     Returns:
         Loops sorted by id. Among circuits of a size class closer than
-        :data:`SPACING_M`, the best by :func:`_rank` is kept; nested circuits
-        of other sizes are kept.
+        :data:`SPACING_M`, the flattest by :func:`grade_band`, then the best
+        by :func:`_rank`, is kept; nested circuits of other sizes are kept.
     """
     flat = [
         (c, g)
         for c, g in zip(candidates, grades, strict=True)
         if g is not None and g <= max_grade_pct
     ]
-    flat.sort(key=lambda item: (_rank(item[0]), loop_id(item[0].coords)))
+    flat.sort(key=lambda item: (grade_band(item[1]), _rank(item[0]), loop_id(item[0].coords)))
     kept: list[tuple[Candidate, float]] = []
     by_class: defaultdict[int, list[BaseGeometry]] = defaultdict(list)
     for candidate, grade in flat:
