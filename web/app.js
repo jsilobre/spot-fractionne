@@ -29,10 +29,11 @@ import {
   segmentsFromTiles,
   tilesCoveringCircle,
 } from "./tiles.js";
+import { BASEMAPS, basemapById } from "./basemaps.js";
 
 // Published tileset, or the fictitious sample when there is none.
 const DATA_DIRS = ["data/", "data/sample/"];
-const BASEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const BASEMAP_KEY = "basemap"; // localStorage key of the chosen basemap
 const FALLBACK_STYLE = {
   version: 8,
   sources: {},
@@ -211,15 +212,17 @@ function popupHtml(properties, distanceM) {
 const protocol = new Protocol();
 maplibregl.addProtocol("pmtiles", protocol.tile);
 
+let basemap = basemapById(readStoredBasemap());
 const map = new maplibregl.Map({
   container: "map",
-  style: BASEMAP_STYLE,
+  style: basemap.style,
   ...INITIAL_VIEW,
   attributionControl: false, // added once the data attribution is known
 });
 globalThis.flatSegmentsMap = map; // handy for debugging from the browser console
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
+map.addControl({ onAdd: basemapControl, onRemove() {} }, "top-right");
 
 let usingFallback = false;
 let styleReady = false;
@@ -233,6 +236,39 @@ map.on("error", (event) => {
     console.error(event.error);
   }
 });
+
+function readStoredBasemap() {
+  try {
+    return localStorage.getItem(BASEMAP_KEY);
+  } catch {
+    return null; // storage blocked: default basemap
+  }
+}
+
+/** Map control: a list of the basemaps, the choice kept for the next visit. */
+function basemapControl() {
+  const container = document.createElement("div");
+  container.className = "maplibregl-ctrl maplibregl-ctrl-group basemap-control";
+  const select = document.createElement("select");
+  select.setAttribute("aria-label", "Fond de carte");
+  select.title = "Fond de carte";
+  for (const { id, label } of BASEMAPS) select.append(new Option(label, id, false, id === basemap.id));
+  select.addEventListener("change", () => {
+    basemap = basemapById(select.value);
+    try {
+      localStorage.setItem(BASEMAP_KEY, basemap.id);
+    } catch {
+      // storage blocked: the choice lasts for this visit only
+    }
+    // A failing basemap falls back to the plain background again.
+    styleReady = false;
+    usingFallback = false;
+    // No diff: a full reload fires "style.load", which redraws our layers.
+    map.setStyle(basemap.style, { diff: false });
+  });
+  container.append(select);
+  return container;
+}
 
 const popup = new maplibregl.Popup({ maxWidth: "300px" });
 // The position: a marker (DOM element) that can be dragged to another place.
@@ -309,6 +345,10 @@ function addSegmentLayers() {
   layer("segments-casing", tiles.layer, { "line-color": "#ffffff", "line-width": width(6, 10, 1.6) }, detail);
   layer("segments", tiles.layer, { "line-color": color, "line-width": width(3, 7, 1.8) }, detail);
   updateMapFilters();
+  // After a basemap change, highlight the selected segment again.
+  if (state.selectedId !== null) {
+    map.setFeatureState({ source: "segments", sourceLayer: tiles.layer, id: state.selectedId }, { selected: true });
+  }
 }
 
 map.on("style.load", addDataLayers);

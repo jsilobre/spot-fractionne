@@ -229,7 +229,10 @@ data/                 données téléchargées et produites (non versionné)
   [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
   © les contributeurs d'OpenStreetMap.
 - **Altitudes** : IGN – MNT LiDAR HD (RGE ALTI® en repli), [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/).
-- **Fond de carte** : [OpenFreeMap](https://openfreemap.org/), données © OpenStreetMap.
+- **Fonds de carte** : [OpenFreeMap](https://openfreemap.org/) (par défaut), données © OpenStreetMap ;
+  Plan IGN et photographies aériennes de la [Géoplateforme IGN](https://geoservices.ign.fr/)
+  ([Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)) ;
+  [OpenTopoMap](https://opentopomap.org/) (CC-BY-SA).
 - **Recherche d'adresse** : service de géocodage de la Géoplateforme IGN
   (Base Adresse Nationale, [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)).
 
