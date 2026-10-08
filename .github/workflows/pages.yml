@@ -33,7 +33,7 @@ jobs:
       - name: Assemble the site (without tests)
         run: |
           mkdir -p _site
-          cp web/index.html web/app.js web/filters.js web/geocode.js web/tiles.js web/analytics.js web/style.css _site/
+          cp web/index.html web/app.js web/basemaps.js web/filters.js web/geocode.js web/tiles.js web/analytics.js web/style.css _site/
           cp -r web/vendor _site/vendor
           cp -r web/data _site/data
       - name: Published data (R2, else the release data-latest)
