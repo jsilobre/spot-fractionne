@@ -9,7 +9,7 @@ test("basemaps have unique ids and a label", () => {
 });
 
 test("raster basemaps credit their source and use https tiles", () => {
-  for (const { style } of BASEMAPS.filter((b) => typeof b.style === "object")) {
+  for (const { style } of BASEMAPS.filter((b) => b.style.sources?.basemap?.type === "raster")) {
     assert.equal(style.version, 8);
     const source = style.sources.basemap;
     assert.ok(source.attribution);

@@ -1,6 +1,8 @@
 // Basemaps the user can switch between: free services usable from a static
 // page without an API key. Pure data and helpers, tested without a browser.
 
+import { courseStyle } from "./coursestyle.js";
+
 const IGN_WMTS = "https://data.geopf.fr/wmts";
 const IGN_ATTRIBUTION =
   '<a href="https://geoservices.ign.fr/" target="_blank" rel="noopener">© IGN – Géoplateforme</a>';
@@ -35,6 +37,11 @@ export const BASEMAPS = [
     label: "Plan",
     // Vector style; it carries its own attributions.
     style: "https://tiles.openfreemap.org/styles/liberty",
+  },
+  {
+    id: "course",
+    label: "Course",
+    style: courseStyle(),
   },
   {
     id: "ign",
