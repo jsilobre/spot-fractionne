@@ -179,7 +179,8 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   filtres, liste des résultats.
 - `basemaps.js` : fonds de carte proposés par un menu sur la carte (choix
   gardé dans le `localStorage`) : Plan (vectoriel OpenFreeMap, par défaut),
-  Plan IGN et photos aériennes (WMTS de la Géoplateforme IGN, sans clé),
+  Course (style maison de `coursestyle.js` sur les mêmes tuiles : parcs et
+  chemins mis en avant, routes discrètes), Plan IGN et photos aériennes (WMTS de la Géoplateforme IGN, sans clé),
   Relief (OpenTopoMap, courbes de niveau).
 - **Position** :
   - géolocalisation de l'appareil ;
