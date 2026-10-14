@@ -173,6 +173,48 @@ def test_regular_climb_is_detected_trimmed_and_oriented_uphill() -> None:
     assert climb.score > 70
 
 
+def test_steepest_grades_per_length() -> None:
+    z = np.concatenate([np.arange(100) * 0.2, 19.8 + np.arange(1, 41) * 0.6])  # 4 % then 12 %
+    grades = dt.steepest_grades(z, 5.0)
+    assert grades["steep_100_pct"] == pytest.approx(12)
+    assert grades["steep_200_pct"] == pytest.approx(12)
+    assert grades["steep_400_pct"] == pytest.approx(8)
+    assert grades["steep_800_pct"] is None
+    assert grades["steep_1000_pct"] is None
+
+
+def test_climb_with_a_steep_end_records_its_steepest_stretches() -> None:
+    stroke = straight_stroke(1000)
+    z = raw_profile(stroke, piecewise((200, 0), (400, 4), (200, 12), (200, 0)))
+    [climb] = of_kind(run(stroke, z), dt.SegmentKind.CLIMB)
+    assert climb.grade_mean_pct == pytest.approx(6.7, abs=0.7)
+    assert climb.steep_100_pct == pytest.approx(12, abs=0.6)
+    assert climb.steep_200_pct == pytest.approx(12, abs=1)
+    assert climb.steep_800_pct is None
+    flats = of_kind(run(stroke, z), dt.SegmentKind.FLAT)
+    assert all(f.steep_100_pct is None for f in flats)
+
+
+def test_long_climb_goes_over_a_replat_that_cuts_climbs() -> None:
+    stroke = straight_stroke(2000)
+    z = raw_profile(stroke, piecewise((200, 0), (700, 5), (100, 0), (700, 4), (300, 0)))
+    segments = run(stroke, z)
+    climbs = of_kind(segments, dt.SegmentKind.CLIMB)
+    [long_climb] = of_kind(segments, dt.SegmentKind.LONG_CLIMB)
+    assert len(climbs) == 2
+    assert long_climb.length_m == pytest.approx(1500, abs=50)
+    assert long_climb.grade_mean_pct == pytest.approx(4.2, abs=0.4)
+    assert long_climb.id.startswith("long_climb-")
+    assert long_climb.fits_targets_m == (1000, 1500)
+    assert long_climb.steep_100_pct == pytest.approx(5, abs=0.5)
+
+
+def test_short_climbs_are_not_long_climbs() -> None:
+    stroke = straight_stroke(900)
+    z = raw_profile(stroke, piecewise((300, 0), (300, 6), (300, 0)))
+    assert of_kind(run(stroke, z), dt.SegmentKind.LONG_CLIMB) == []
+
+
 def test_descending_stroke_gives_the_same_climb_reversed() -> None:
     stroke = straight_stroke(900)
     z = raw_profile(stroke, piecewise((300, 0), (300, -6), (300, 0)))

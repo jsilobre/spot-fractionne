@@ -239,6 +239,21 @@ de 40 m est toléré, un replat de 60 m coupe la côte (vérifié par les tests)
 Les traversées ne rendent pas une fenêtre invalide. Elles sont comptées,
 pénalisées dans le score (§ 10), et le front peut exiger « 0 traversée ».
 
+### 7.3 Critères « côte longue »
+
+Pour les séances de côtes longues (4 × 6 min, 2 × 10 min…), une seconde
+détection de côtes tourne avec les paramètres `long_climb.*` : fenêtre de
+`W₀` = 1 km, pente moyenne d'au moins 2,5 %, replats **et petites descentes**
+tolérés jusqu'à 150 m d'affilée, sinuosité jusqu'à 3 (routes en lacets). Les
+critères, la fusion (§ 8), le score (§ 10, poids `long_climb.weights`) et la
+déduplication (§ 11) sont ceux des côtes, appliqués à part : une côte longue
+(`kind = "long_climb"`) recouvre souvent plusieurs côtes, qui restent publiées.
+
+Sur le sud-est toulousain (Pech David, coteaux), cette détection trouve 34
+côtes d'1 km ou plus, contre 6 avec les critères des côtes. Elle reste
+limitée aux strokes (§ 2) : une côte qui tourne de plus de 35° à un
+carrefour est coupée.
+
 ## 8. Fusion en tronçons maximaux
 
 Plutôt que de produire une fenêtre de longueur fixe par longueur cible, on
@@ -263,6 +278,12 @@ Voir [ADR 0006](adr/0006-strokes-et-troncons-maximaux.md).
   une fenêtre de longueur `T` incluse dans le tronçon (pas d'un échantillon)
   respecte les critères du § 7. Un plat de 1,3 km dont la pente moyenne
   dépasse 1 % sur tout kilomètre aura ainsi `fits_targets_m = [200, 400]`.
+- **`steep_{L}_pct`** (côtes) : pour `L` = 100, 200, 400, 800 et 1000 m,
+  la pente moyenne maximale d'une fenêtre de longueur `L` incluse dans la côte.
+  Une longue côte à pente irrégulière (rue du Dix Avril, Toulouse : 514 m à
+  7,5 % de moyenne, dont 100 m à 13,5 %) passe ainsi un filtre « 100 m, 10 %
+  minimum » sur le site, qui compare la pente minimale à `steep_{L}_pct` pour
+  la longueur minimale choisie (et la pente maximale à `grade_mean_pct`).
 
 La géométrie publiée est la **sous-polyligne exacte** du stroke entre les
 deux abscisses (sommets OSM d'origine), et non la version rééchantillonnée.
@@ -405,6 +426,12 @@ redirigés vers le segment qui les remplace, ou retirés
 | `climb.min_local_grade_pct` | 1 % | Seuil de « replat » |
 | `climb.max_flat_stretch_m` | 20 m | Longueur max d'un replat dans une fenêtre |
 | `climb.max_sinuosity` | 1,5 | Sinuosité max d'une fenêtre |
+| `long_climb.target_lengths_m` | 1000, 1500, 2000, 3000 m | Côtes longues : longueurs cibles (la plus courte = fenêtre de détection) |
+| `long_climb.min_mean_grade_pct` | 2,5 % | Côtes longues : pente moyenne min |
+| `long_climb.max_mean_grade_pct` | 15 % | Côtes longues : pente moyenne max |
+| `long_climb.min_local_grade_pct` | 1 % | Côtes longues : seuil de « replat » |
+| `long_climb.max_flat_stretch_m` | 150 m | Côtes longues : longueur max d'un replat ou d'une descente |
+| `long_climb.max_sinuosity` | 3 | Côtes longues : sinuosité max d'une fenêtre |
 | `dedup.buffer_m` | 20 m | Distance de recouvrement |
 | `dedup.max_overlap` | 0,5 | Part de recouvrement au-delà de laquelle un segment est écarté |
 

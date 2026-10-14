@@ -50,6 +50,7 @@ class SegmentKind(StrEnum):
 
     FLAT = "flat"
     CLIMB = "climb"
+    LONG_CLIMB = "long_climb"
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -82,6 +83,34 @@ class Segment:
     stroke_id: str
     stroke_start_m: float
     stroke_end_m: float
+    # Climbs only: steepest mean grade over a stretch of each STEEP_LENGTHS_M
+    # (None for flats, or when the climb is shorter).
+    steep_100_pct: float | None = None
+    steep_200_pct: float | None = None
+    steep_400_pct: float | None = None
+    steep_800_pct: float | None = None
+    steep_1000_pct: float | None = None
+
+
+#: Lengths of the steepest stretches recorded on climbs (the minimum lengths of
+#: the web page), so that a long climb with a steep end passes a steep filter.
+STEEP_LENGTHS_M: Final = (100, 200, 400, 800, 1000)
+
+
+def steepest_grades(z: FloatArray, step: float) -> dict[str, float | None]:
+    """Steepest mean grade over each of ``STEEP_LENGTHS_M``, on a climbing profile.
+
+    ``z`` is sampled every ``step`` metres in the climbing direction. A length
+    longer than the profile gets None.
+    """
+    grades: dict[str, float | None] = {}
+    for length in STEEP_LENGTHS_M:
+        n = samples_for(length, step)
+        value = None
+        if step > 0 and len(z) > n:
+            value = float(np.max(z[n:] - z[:-n])) * 100.0 / (n * step)
+        grades[f"steep_{length}_pct"] = value
+    return grades
 
 
 # --- sliding windows --------------------------------------------------------
@@ -439,6 +468,7 @@ def _make_segment(
             params=detection.flat,
         )
     else:
+        climb = detection.climb if kind is SegmentKind.CLIMB else detection.long_climb
         score = score_climb(
             grade_mean_pct=grade_mean,
             grade_std_pct=float(grade.std()),
@@ -448,7 +478,7 @@ def _make_segment(
             surface=summary.surface,
             lit=summary.lit,
             n_fits=len(fits),
-            params=detection.climb,
+            params=climb,
         )
     return Segment(
         id=stable_id(kind.value, coords),
@@ -477,6 +507,7 @@ def _make_segment(
         stroke_id=stroke.id,
         stroke_start_m=start,
         stroke_end_m=end,
+        **(steepest_grades(z, profile.step) if kind is not SegmentKind.FLAT else {}),
     )
 
 
@@ -504,10 +535,14 @@ def detect_flats(
 
 
 def detect_climbs(
-    stroke: Stroke, profile: Profile, params: PipelineParams, elevation_source: str
+    stroke: Stroke,
+    profile: Profile,
+    params: PipelineParams,
+    elevation_source: str,
+    kind: SegmentKind = SegmentKind.CLIMB,
 ) -> list[Segment]:
-    """Maximal climbs of a stroke in both directions (sections 7.2 and 8)."""
-    climb = params.detection.climb
+    """Maximal climbs (or long climbs) of a stroke in both directions (sections 7.2, 7.3, 8)."""
+    climb = params.detection.climb if kind is SegmentKind.CLIMB else params.detection.long_climb
     step = profile.step
     if step <= 0:
         return []
@@ -536,9 +571,7 @@ def detect_climbs(
                 continue
             fits = _fits_targets(profile, i0, i1, climb.target_lengths_m, mask_fn)
             segments.append(
-                _make_segment(
-                    SegmentKind.CLIMB, stroke, profile, i0, i1, sign, fits, params, elevation_source
-                )
+                _make_segment(kind, stroke, profile, i0, i1, sign, fits, params, elevation_source)
             )
     return segments
 
@@ -596,9 +629,11 @@ def assign_unique_ids(segments: Sequence[Segment]) -> list[Segment]:
 def detect_stroke(
     stroke: Stroke, profile: Profile, params: PipelineParams, elevation_source: str
 ) -> list[Segment]:
-    """All flat segments and climbs of one stroke (before deduplication)."""
-    return detect_flats(stroke, profile, params, elevation_source) + detect_climbs(
-        stroke, profile, params, elevation_source
+    """All flat segments, climbs and long climbs of one stroke (before deduplication)."""
+    return (
+        detect_flats(stroke, profile, params, elevation_source)
+        + detect_climbs(stroke, profile, params, elevation_source)
+        + detect_climbs(stroke, profile, params, elevation_source, SegmentKind.LONG_CLIMB)
     )
 
 

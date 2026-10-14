@@ -29,7 +29,7 @@ Fichiers : `data/processed/segments.parquet` (GeoParquet) et
 | Champ | Type | Unité | Description |
 |---|---|---|---|
 | `id` | `str` | — | Identifiant stable `"{kind}-{12 hex}"`, voir [`algorithm.md` § 12](algorithm.md#12-identifiant-stable) |
-| `kind` | `"flat"` \| `"climb"` | — | Type de segment |
+| `kind` | `"flat"` \| `"climb"` \| `"long_climb"` | — | Type de segment (côte longue : § 7.3 de l'algorithme) |
 | `geometry` | `LineString` | — | Sous-polyligne exacte du réseau OSM ; côtes orientées vers le haut |
 | `length_m` | `float` | m | Longueur le long de la géométrie |
 | `elev_start_m` | `float` | m | Altitude (lissée) au début |
@@ -38,6 +38,7 @@ Fichiers : `data/processed/segments.parquet` (GeoParquet) et
 | `elev_loss_m` | `float` | m | Dénivelé négatif cumulé (D-), valeur positive |
 | `grade_mean_pct` | `float` | % | Pente moyenne `(elev_end − elev_start) / length`, signée |
 | `grade_max_pct` | `float` | % | Pente locale maximale en valeur absolue (base 20 m) |
+| `steep_{L}_pct` | `float` \| `null` | % | Côtes seulement, pour `L` = 100, 200, 400, 800, 1000 : pente moyenne du passage de `L` m le plus raide ; `null` pour un plat ou une côte plus courte que `L`. Le site filtre la pente minimale sur `steep_{L}_pct` pour la longueur minimale choisie |
 | `sinuosity` | `float` \| `null` | — | Longueur / distance à vol d'oiseau entre extrémités (≥ 1) ; `null` dans le GeoJSON pour une boucle fermée. Le site affiche « boucle » au-delà de 3 (extrémités proches) |
 | `n_crossings` | `int` | — | Intersections avec une route circulée (`MINOR`) à l'intérieur du segment |
 | `n_junctions` | `int` | — | Carrefours avec d'autres chemins à l'intérieur du segment |

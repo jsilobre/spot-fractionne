@@ -46,7 +46,7 @@ MATCH_MIN: Final = 0.8
 #: Share of a vanished segment covered by a new one to redirect its id there.
 ALIAS_MIN: Final = 0.3
 #: A segment id: kind, 12 hexadecimal characters, optional ``-N`` suffix.
-SEGMENT_ID: Final = re.compile(r"(flat|climb|loop)-[0-9a-f]{12}(-[0-9]+)?")
+SEGMENT_ID: Final = re.compile(r"(flat|climb|long_climb|loop)-[0-9a-f]{12}(-[0-9]+)?")
 
 
 def is_segment_id(value: object) -> bool:

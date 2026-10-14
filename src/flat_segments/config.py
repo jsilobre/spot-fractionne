@@ -27,6 +27,7 @@ from flat_segments.params import PipelineParams
 SHORTCUTS: Final[Mapping[str, str]] = {
     "flat": "detection.flat",
     "climb": "detection.climb",
+    "long_climb": "detection.long_climb",
     "dedup": "detection.dedup",
 }
 

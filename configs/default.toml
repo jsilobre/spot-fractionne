@@ -49,6 +49,22 @@ surface = 0.15
 lighting = 0.05
 length = 0.05
 
+[detection.long_climb]
+target_lengths_m = [1000.0, 1500.0, 2000.0, 3000.0]
+min_mean_grade_pct = 2.5
+max_mean_grade_pct = 15.0
+min_local_grade_pct = 1.0
+max_flat_stretch_m = 150.0
+max_sinuosity = 3.0
+
+[detection.long_climb.weights]
+regularity = 0.35
+crossings = 0.3
+straightness = 0.1
+surface = 0.15
+lighting = 0.05
+length = 0.05
+
 [detection.dedup]
 buffer_m = 20.0
 max_overlap = 0.5

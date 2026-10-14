@@ -12,6 +12,8 @@ export const DEFAULT_CRITERIA = Object.freeze({
   minMeanGradePct: 3,
   maxMeanGradePct: 15,
   maxDistanceM: 5000,
+  effortMin: 6,
+  paceSecPerKm: 330,
   noCrossing: false,
   pavedOnly: false,
   publicOnly: false,
@@ -26,8 +28,16 @@ export function loopType(properties) {
   return properties.loop_type === "circuit" ? properties.setting : "track";
 }
 
-/** Kinds of results: flat segments, climbs and loops (running tracks). */
-export const KINDS = Object.freeze(["flat", "climb", "loop"]);
+/** Kinds of results: flat segments, climbs, long climbs and loops. */
+export const KINDS = Object.freeze(["flat", "climb", "long_climb", "loop"]);
+
+/**
+ * Minimum length of a long climb for an effort of `minutes` at a pace of
+ * `paceSecPerKm` (seconds per kilometre), rounded to 10 m.
+ */
+export function effortLengthM(minutes, paceSecPerKm) {
+  return Math.round((minutes * 60 * 1000) / paceSecPerKm / 10) * 10;
+}
 
 /**
  * Above this sinuosity (length / distance between the ends), a segment is shown
@@ -104,8 +114,18 @@ export function matches(properties, criteria) {
   if (criteria.pavedOnly && p.surface !== "paved") return false;
   if (p.kind === "flat") return p.grade_max_pct <= criteria.maxLocalGradePct;
   return (
-    p.grade_mean_pct >= criteria.minMeanGradePct && p.grade_mean_pct <= criteria.maxMeanGradePct
+    steepGrade(p, criteria.minLengthM) >= criteria.minMeanGradePct &&
+    p.grade_mean_pct <= criteria.maxMeanGradePct
   );
+}
+
+/**
+ * Steepest mean grade of a climb over a stretch of `lengthM` (the minimum
+ * length): a long climb whose steep end meets the minimum grade is kept.
+ * The mean grade of the whole climb when the tiles predate these fields.
+ */
+export function steepGrade(properties, lengthM) {
+  return properties[`steep_${lengthM}_pct`] ?? properties.grade_mean_pct;
 }
 
 /**
@@ -139,7 +159,8 @@ export function mapFilter(criteria, pinnedId = null, ids = null) {
     if (criteria.kind === "flat") {
       conditions.push(["<=", get("grade_max_pct"), criteria.maxLocalGradePct]);
     } else {
-      conditions.push([">=", get("grade_mean_pct"), criteria.minMeanGradePct]);
+      const steep = ["coalesce", get(`steep_${criteria.minLengthM}_pct`), get("grade_mean_pct")];
+      conditions.push([">=", steep, criteria.minMeanGradePct]);
       conditions.push(["<=", get("grade_mean_pct"), criteria.maxMeanGradePct]);
     }
   }
@@ -250,9 +271,9 @@ export function featuresBounds(features) {
 }
 
 /**
- * Read the page state from a query string: `?id=…`, `?kind=flat|climb|loop`,
+ * Read the page state from a query string: `?id=…`, `?kind=flat|climb|long_climb|loop`,
  * `?lat=…&lon=…`. Invalid values are ignored.
- * @returns {{id: string | null, kind: "flat" | "climb" | "loop" | null, position: [number, number] | null}}
+ * @returns {{id: string | null, kind: "flat" | "climb" | "long_climb" | "loop" | null, position: [number, number] | null}}
  */
 export function parseUrlState(search) {
   const params = new URLSearchParams(search);

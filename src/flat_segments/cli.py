@@ -150,7 +150,9 @@ def elevation(
 
 def _report_detection(segments: list[Segment], out: Path) -> None:
     n_flat = sum(s.kind is SegmentKind.FLAT for s in segments)
-    typer.echo(f"{n_flat} flat segments, {len(segments) - n_flat} climbs -> {out}")
+    n_long = sum(s.kind is SegmentKind.LONG_CLIMB for s in segments)
+    n_climb = len(segments) - n_flat - n_long
+    typer.echo(f"{n_flat} flat segments, {n_climb} climbs, {n_long} long climbs -> {out}")
 
 
 @app.command()
