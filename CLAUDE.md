@@ -70,7 +70,8 @@ Read `docs/architecture.md` for the full component table; key ideas that span fi
 - **Front** (`web/`): `app.js` wires MapLibre + PMTiles (ES modules from a CDN via an import map,
   pinned with SRI). Pure, tested logic lives in `filters.js` (criteria, `matches`, `mapFilter`, URL
   state `?id=`, `?lat=&lon=`, `?kind=climb|long_climb|loop`), `tiles.js` (z12 tile decoding, tiles covering the
-  ≤ 10 km search circle) and `geocode.js` (IGN geocoder). The result list is built from z12 tiles;
+  ≤ 10 km search circle), `geocode.js` (IGN geocoder) and `route.js` (IGN walking route to a segment's
+  start, GPS app link). The result list is built from z12 tiles;
   the map's MapLibre filter expression must select exactly what `matches` selects.
   `basemaps.js` / `coursestyle.js` hold the basemaps, `pwa.js` + `sw.js` + `manifest.webmanifest`
   make the site installable, `analytics.js` counts visits (GoatCounter, never the position).

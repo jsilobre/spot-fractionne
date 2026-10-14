@@ -32,6 +32,7 @@ import {
   tilesCoveringCircle,
 } from "./tiles.js";
 import { BASEMAPS, basemapById } from "./basemaps.js";
+import { navigationUrl, parseRoute, routeUrl, segmentStart } from "./route.js";
 
 // Published tileset, or the fictitious sample when there is none.
 const DATA_DIRS = ["data/", "data/sample/"];
@@ -44,6 +45,7 @@ const FALLBACK_STYLE = {
 const INITIAL_VIEW = { center: [1.535, 43.53], zoom: 13 };
 const MAX_RESULTS = 50;
 const COLORS = { flat: "#1f6fb2", climb: "#d4570f", long_climb: "#a0207a", loop: "#2a8a4a" };
+const ROUTE_COLOR = "#e0245e"; // the position marker's color
 // Radius of the tiles read to open a linked segment around its indexed position.
 const LINK_RADIUS_M = 1500;
 // Pause in the typing before suggesting addresses.
@@ -92,6 +94,11 @@ const state = {
   criteria: { ...DEFAULT_CRITERIA },
   sortBy: "distance",
   selectedId: null,
+  selectedFeature: null, // the whole selected segment, for its route
+  // Walking route from the position to the selected segment:
+  // {coordinates, distanceM, durationS}, "loading", or an error message.
+  route: null,
+  routeQuery: 0, // id of the latest route request (older answers are ignored)
   pinnedId: null, // segment opened by a link: shown even if the filters exclude it
   placing: false, // the next click on the map sets the position
 };
@@ -127,6 +134,12 @@ const formatDuration = (lengthM, paceSecPerKm) => {
   const seconds = Math.round(((lengthM / 1000) * paceSecPerKm) / 10) * 10;
   const rest = seconds % 60;
   return `${Math.floor(seconds / 60)} min${rest ? ` ${String(rest).padStart(2, "0")}` : ""}`;
+};
+
+/** A walking time in minutes, e.g. "12 min" or "1 h 05". */
+const formatWalk = (seconds) => {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")}`;
 };
 
 const crossings = (n) => `${fmt(n)} traversée${n > 1 ? "s" : ""}`;
@@ -182,6 +195,7 @@ function loopPopupHtml(p, distanceM) {
     <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
     ${osmLink}
     <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette ${circuit ? "boucle" : "piste"}</a></p>
+    <div class="route-box"></div>
   </div>`;
 }
 
@@ -223,6 +237,7 @@ function popupHtml(properties, distanceM) {
     ${flags.length ? `<p class="flags">⚠ ${escapeHtml(flags.join(" ; "))}</p>` : ""}
     ${p.elevation_source !== "synthetic" && osmLinks ? `<p class="hint">Voies OSM : ${osmLinks}</p>` : ""}
     <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers ce segment</a></p>
+    <div class="route-box"></div>
   </div>`;
 }
 
@@ -312,6 +327,14 @@ function addDataLayers() {
     type: "line",
     source: "search-area",
     paint: { "line-color": "#4a4a4a", "line-width": 1.5, "line-opacity": 0.7, "line-dasharray": [3, 2] },
+  });
+  map.addSource("route", { type: "geojson", data: emptyCollection() });
+  map.addLayer({
+    id: "route",
+    type: "line",
+    source: "route",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": ROUTE_COLOR, "line-width": 4, "line-opacity": 0.85, "line-dasharray": [1, 1.5] },
   });
   if (state.archive) addSegmentLayers();
   // A style change (basemap fallback) removes our layers: redraw everything.
@@ -522,6 +545,8 @@ async function refreshResults() {
 function clearSelection() {
   const id = state.selectedId;
   state.selectedId = null; // before popup.remove(), which fires "close"
+  state.selectedFeature = null;
+  clearRoute();
   if (id !== null && map.getSource("segments")) {
     map.setFeatureState({ source: "segments", sourceLayer: state.metadata.tiles.layer, id }, { selected: false });
   }
@@ -566,6 +591,7 @@ function render() {
     const { center, radiusM } = state.searchArea ?? {};
     area.setData(center ? circlePolygon(center, radiusM) : emptyCollection());
   }
+  map.getSource("route")?.setData(routeCollection());
   renderResults();
 }
 
@@ -633,6 +659,9 @@ function selectSegment(id, lngLat = null, feature = null) {
   if (!selected) return;
   clearSelection();
   state.selectedId = id;
+  // A segment clicked on the map is cut to the tiles on screen: prefer the
+  // whole one of the result list.
+  state.selectedFeature = result?.feature ?? selected;
   map.setFeatureState({ source: "segments", sourceLayer: state.metadata.tiles.layer, id }, { selected: true });
   const lines = lineParts(selected.geometry);
   const longest = lines.reduce((a, b) => (b.length > a.length ? b : a));
@@ -642,7 +671,86 @@ function selectSegment(id, lngLat = null, feature = null) {
     .setLngLat(anchor)
     .setHTML(popupHtml(selected.properties, result?.distanceM ?? null))
     .addTo(map);
+  renderRouteBox();
   updateUrl();
+}
+
+// --- route to the selected segment ---------------------------------------------
+
+function routeCollection() {
+  const route = state.route;
+  if (!route?.coordinates) return emptyCollection();
+  return { type: "FeatureCollection", features: [routeFeature(route)] };
+}
+
+const routeFeature = (route) => ({
+  type: "Feature",
+  properties: {},
+  geometry: { type: "LineString", coordinates: route.coordinates },
+});
+
+function clearRoute() {
+  state.routeQuery++; // a pending answer is dropped
+  state.route = null;
+  map.getSource("route")?.setData(emptyCollection());
+}
+
+/** The route part of the popup: compute button, result, GPS app link. */
+function renderRouteBox() {
+  const box = popup.getElement()?.querySelector(".route-box");
+  if (!box || !state.selectedFeature) return;
+  const route = state.route;
+  const parts = [];
+  if (!state.position) {
+    parts.push(`<p class="hint">Donnez votre position (📍 ou ✚) pour calculer l'itinéraire à pied jusqu'au départ.</p>`);
+  } else if (route === "loading") {
+    parts.push(`<p class="hint">Calcul de l'itinéraire…</p>`);
+  } else if (route?.coordinates) {
+    parts.push(
+      `<p class="route-result">À pied jusqu'au départ : <strong>${escapeHtml(formatLength(route.distanceM))}</strong>, ` +
+        `environ ${escapeHtml(formatWalk(route.durationS))} en marchant</p>`,
+    );
+  } else {
+    if (typeof route === "string") parts.push(`<p class="flags">${escapeHtml(route)}</p>`);
+    parts.push(`<button type="button" class="route-button">🧭 Itinéraire depuis ma position</button>`);
+  }
+  const start = segmentStart(state.selectedFeature, state.position ?? searchCenter());
+  const gps = navigationUrl(start, navigator.userAgent, navigator.maxTouchPoints);
+  parts.push(`<p class="hint"><a href="${escapeHtml(gps)}" target="_blank" rel="noopener">Y aller avec une appli GPS</a></p>`);
+  box.innerHTML = parts.join("");
+  box.querySelector(".route-button")?.addEventListener("click", computeRoute);
+}
+
+/** Walking route from the position to the start of the selected segment. */
+async function computeRoute() {
+  const feature = state.selectedFeature;
+  const from = state.position;
+  if (!feature || !from) return;
+  const query = ++state.routeQuery;
+  state.route = "loading";
+  renderRouteBox();
+  let route = null;
+  let message = "Itinéraire impossible à calculer (réseau). Réessayez.";
+  try {
+    const response = await fetch(routeUrl(from, segmentStart(feature, from)));
+    // The service answers 4xx with {"error": …} when there is no path.
+    route = parseRoute(await response.json());
+    if (!route) message = "Aucun itinéraire à pied trouvé jusqu'à ce segment.";
+  } catch (error) {
+    console.warn("Route unavailable", error);
+  }
+  if (query !== state.routeQuery) return; // selection or position changed meanwhile
+  state.route = route ?? message;
+  map.getSource("route")?.setData(routeCollection());
+  renderRouteBox();
+  if (route) {
+    const bounds = featuresBounds([routeFeature(route), feature]);
+    // Room for the popup above the route, within small (phone) maps too.
+    const { clientWidth: w, clientHeight: h } = map.getContainer();
+    const side = Math.min(60, w * 0.1);
+    const padding = { top: Math.min(220, h * 0.4), bottom: Math.min(60, h * 0.1), left: side, right: side };
+    map.fitBounds(bounds, { padding, maxZoom: 16 });
+  }
 }
 
 /**
@@ -687,6 +795,8 @@ function setPosition(position, label) {
   state.position = position;
   state.positionLabel = label;
   if (state.placing) setPlacing(false); // the position was given another way
+  clearRoute(); // it started from the old position
+  renderRouteBox();
   showPosition();
   applyFilters();
   updateUrl();
