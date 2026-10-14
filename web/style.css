@@ -389,6 +389,25 @@ input[type="range"] {
   color: #6b4a00;
 }
 
+.route-box {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.route-box p {
+  margin: 4px 0 0;
+}
+
+.route-result {
+  font-size: 12px;
+}
+
+.route-button {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

@@ -207,6 +207,12 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
     avec suggestions pendant la frappe (géocodeur de l'IGN,
     [ADR 0010](adr/0010-geocodage-ign.md), fonctions pures dans
     `geocode.js`).
+- **Itinéraire** ([ADR 0016](adr/0016-itineraire-ign.md)) : la fiche d'un
+  segment propose l'itinéraire à pied depuis la position jusqu'à son départ
+  (bas d'une côte, extrémité la plus proche d'un plat, point le plus proche
+  d'une boucle), calculé à la demande par le service d'itinéraire de l'IGN
+  et tracé sur la carte, et un lien vers l'appli GPS du téléphone (fonctions
+  pures dans `route.js`).
 - **Données en tuiles vectorielles** ([ADR 0009](adr/0009-pmtiles-tippecanoe.md),
   [étape 2.2](phase-2/2.2-tuiles.md)) : le fichier PMTiles à l'adresse donnée
   par `data/segments.json` (sur Cloudflare R2, [ADR 0013](adr/0013-donnees-sur-r2.md)),
@@ -263,7 +269,7 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   de la page réseau d'abord (un déploiement se voit tout de suite, la copie en
   cache sert hors ligne) et les bibliothèques épinglées sur unpkg cache
   d'abord. Il ne touche ni aux données (`data/`, R2), ni aux fonds de carte,
-  ni au géocodeur : hors ligne, la page s'ouvre mais sans segments. Les
+  ni au géocodeur, ni au service d'itinéraire : hors ligne, la page s'ouvre mais sans segments. Les
   listes `SHELL` et `CDN` de `sw.js` sont vérifiées par les tests contre
   `index.html` et la liste de copie de `pages.yml`.
 - **Publication** : le workflow `.github/workflows/pages.yml` déploie `web/`
@@ -278,6 +284,7 @@ sequenceDiagram
     participant T as tiles.js / filters.js
     participant S as Hébergement statique
     participant G as Géocodeur IGN
+    participant I as Itinéraire IGN
 
     B->>S: GET data/segments.json
     alt 404
@@ -298,6 +305,12 @@ sequenceDiagram
     B->>B: filtre de la carte (critères + identifiants de la liste), cercle
     U->>B: clic sur un segment
     B->>U: popup (longueur, pente, revêtement, traversées…)
+    opt itinéraire
+        U->>B: « Itinéraire depuis ma position »
+        B->>I: position → départ du segment, à pied
+        I-->>B: tracé, longueur, durée
+        B->>U: trajet sur la carte, lien vers l'appli GPS
+    end
 ```
 
 Le site est hébergeable sur GitHub Pages tel quel (dossier `web/`), qui

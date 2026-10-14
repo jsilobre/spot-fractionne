@@ -99,6 +99,9 @@ Ajouts depuis la mise en ligne nationale :
   relief.
 - **Appli installable** (PWA) et **mesure d'audience** sans cookie
   (GoatCounter).
+- **Itinéraire à pied** depuis la position jusqu'au départ du segment choisi,
+  tracé sur la carte, et lien pour y aller avec une appli GPS
+  ([ADR 0016](docs/adr/0016-itineraire-ign.md)).
 
 Zone pilote : **Labège / Caraman** (sud-est de Toulouse, Haute-Garonne),
 emprise `1.48,43.48,1.80,43.59` (lon/lat WGS84).
@@ -232,13 +235,14 @@ Régénérer le jeu d'exemple (tippecanoe requis) : `uv run python scripts/make_
 Le site s'installe comme une appli (PWA : `manifest.webmanifest`, service
 worker `sw.js`) ; hors ligne, la page s'ouvre mais sans segments. Les visites
 sont comptées avec [GoatCounter](https://spot-fractionne.goatcounter.com),
-sans cookie, et la position n'est jamais transmise.
+sans cookie, et la position n'est jamais transmise. Elle part vers l'IGN
+seulement si l'on demande un itinéraire.
 
 Tout nouveau fichier du site doit être ajouté à la liste de copie de
 `.github/workflows/pages.yml` et, s'il est chargé par la page, à la liste
 `SHELL` de `sw.js` ; des tests le vérifient.
 
-Tests du front (filtrage, décodage des tuiles, géocodage, fonds de carte,
+Tests du front (filtrage, décodage des tuiles, géocodage, itinéraire, fonds de carte,
 PWA, déploiement) : `cd web && node --test`.
 
 ## Organisation du dépôt
@@ -277,5 +281,7 @@ data/                 données téléchargées et produites (non versionné)
   [OpenTopoMap](https://opentopomap.org/) (CC-BY-SA).
 - **Recherche d'adresse** : service de géocodage de la Géoplateforme IGN
   (Base Adresse Nationale, [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)).
+- **Itinéraire à pied** : service d'itinéraire de la Géoplateforme IGN
+  (BD TOPO, [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)).
 
-Ces mentions, sauf la dernière, sont aussi affichées sur la carte du site.
+Ces mentions, sauf les deux dernières, sont aussi affichées sur la carte du site.
