@@ -13,12 +13,16 @@ name: Production
 #    (a browser never mixes two versions) and the two latest are kept. A failed département blocks it: rerun the
 #    failed jobs, the others keep their results.
 # With reuse_run, only the assembly runs, on the départements of an earlier
-# run (its artifacts are kept 7 days): to republish after a fix in the export.
+# run (its artifacts are kept 90 days): to republish after a fix in the export.
 # With keep_run, only the listed départements are computed, and the assembly
 # takes the others from that earlier run: to redo a few départements.
 # With circuits_run, the listed départements start from that earlier run and
 # only redo their circuits step (OSM extracts not refreshed, DEM fetched only
 # around the circuits): to republish after a change in circuits.py.
+# With detect_run, the listed départements start from that earlier run and
+# only redo their detection, on its strokes and elevation profiles (artifacts
+# profiles-CODE): no OSM extract, no DEM, so max_parallel can go up to 20.
+# To publish a change in detect.py, profile.py or the detection parameters.
 on:
   workflow_dispatch:
     inputs:
@@ -40,6 +44,9 @@ on:
         default: ""
       circuits_run:
         description: "Only redo the circuits of the départements, on top of this earlier run id"
+        default: ""
+      detect_run:
+        description: "Only redo the detection of the départements, on the profiles of this earlier run id"
         default: ""
 
 permissions:
@@ -124,7 +131,13 @@ jobs:
         id: codes
         env:
           INPUT: ${{ inputs.departments }}
+          CIRCUITS_RUN: ${{ inputs.circuits_run }}
+          DETECT_RUN: ${{ inputs.detect_run }}
         run: |
+          if [ -n "$CIRCUITS_RUN" ] && [ -n "$DETECT_RUN" ]; then
+            echo "::error::circuits_run and detect_run cannot be combined"
+            exit 1
+          fi
           if [ "$INPUT" = all ]; then
             codes=$(uv run flat-segments department-codes)
           else
@@ -134,19 +147,19 @@ jobs:
           echo "codes=$codes" >> "$GITHUB_OUTPUT"
           echo "Départements: $codes" >> "$GITHUB_STEP_SUMMARY"
       - name: OSM extract of France
-        if: inputs.circuits_run == ''
+        if: inputs.circuits_run == '' && inputs.detect_run == ''
         run: |
           uv run flat-segments download-osm --url "$OSM_URL" --out-dir "$WORK" --no-clip \
             || uv run flat-segments download-osm --url "$OSM_MIRROR_URL" --out-dir "$WORK" --no-clip
           ls -l "$WORK"
       - name: Number the nodes from 1 (memory of the cut, see osm_extracts.py)
-        if: inputs.circuits_run == ''
+        if: inputs.circuits_run == '' && inputs.detect_run == ''
         run: |
           france=$(ls "$WORK"/france*.osm.pbf)
           uv run flat-segments renumber-osm "$france" "$WORK/renumbered.osm.pbf"
           rm "$france"
       - name: Cut per département, upload to the release osm-extracts
-        if: inputs.circuits_run == ''
+        if: inputs.circuits_run == '' && inputs.detect_run == ''
         env:
           CODES: ${{ steps.codes.outputs.codes }}
         run: |
@@ -194,22 +207,45 @@ jobs:
         run: |
           dir="$WORK/departments/$CODE"
           gh run download "$CIRCUITS_RUN" --name "segments-$CODE" --dir "$dir"
+          # Kept for a later detect_run, when that run has them.
+          gh run download "$CIRCUITS_RUN" --name "profiles-$CODE" --dir "$dir" \
+            || echo "No profiles in run $CIRCUITS_RUN"
           jq 'del(.steps.circuits)' "$dir/state.json" > state.json && mv state.json "$dir/state.json"
-      - name: Compute the département
+      - name: Earlier results, detection to redo (run ${{ inputs.detect_run }})
+        if: inputs.detect_run != ''
+        env:
+          DETECT_RUN: ${{ inputs.detect_run }}
         run: |
+          dir="$WORK/departments/$CODE"
+          gh run download "$DETECT_RUN" --name "segments-$CODE" --dir "$dir"
+          gh run download "$DETECT_RUN" --name "profiles-$CODE" --dir "$dir"
+      - name: Compute the département
+        env:
+          DETECT_RUN: ${{ inputs.detect_run }}
+        run: |
+          redo=()
+          [ -n "$DETECT_RUN" ] && redo=(--redo segments)
           uv run flat-segments department "$CODE" --pbf "data/raw/$CODE.osm.pbf" \
-            --root "$WORK/departments"
+            --root "$WORK/departments" "${redo[@]}"
           df -h "$WORK"
       - uses: actions/upload-artifact@v4
         with:
           name: segments-${{ matrix.code }}
-          retention-days: 7
+          retention-days: 90
           path: |
             ${{ env.WORK }}/departments/${{ matrix.code }}/segments.parquet
             ${{ env.WORK }}/departments/${{ matrix.code }}/loops.parquet
             ${{ env.WORK }}/departments/${{ matrix.code }}/circuits.parquet
             ${{ env.WORK }}/departments/${{ matrix.code }}/segments.params.toml
             ${{ env.WORK }}/departments/${{ matrix.code }}/state.json
+      # Apart from segments-*, which the assembly downloads: inputs of a later detect_run.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profiles-${{ matrix.code }}
+          retention-days: 90
+          path: |
+            ${{ env.WORK }}/departments/${{ matrix.code }}/strokes.parquet
+            ${{ env.WORK }}/departments/${{ matrix.code }}/profiles.parquet
 
   assemble:
     needs: [storage, department]

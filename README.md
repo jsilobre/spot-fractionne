@@ -166,7 +166,7 @@ uv run flat-segments export-pmtiles data/departments/*/segments.parquet --previo
 continuent de fonctionner ([ADR 0012](docs/adr/0012-identifiants-stables.md)).
 
 Pour republier sans tout recalculer (assemblage seul avec `reuse_run`, boucles
-du réseau seules avec `circuits_run`), voir
+du réseau seules avec `circuits_run`, détection seule avec `detect_run`), voir
 [`architecture.md` § 8](docs/architecture.md#8-exploitation--corriger-sans-tout-recalculer).
 
 Si Geofabrik est inaccessible, `download-osm --url` accepte le miroir

@@ -163,6 +163,61 @@ def test_department_resumes_and_refuses_other_parameters(
     assert len(web.requests) > requests  # the DEM was deleted by the second run
 
 
+def test_department_redoes_detection_only_from_the_kept_profiles(
+    inputs: tuple[Path, Path], tmp_path: Path
+) -> None:
+    """As the Production workflow with detect_run: the artifacts of a run, new detection."""
+    web = FakeWeb({download.WMS_URL: gentle_wms})
+    first = run(inputs, tmp_path, web)
+    paths = batch.department_paths(tmp_path / "31")
+    assert first["steps"]["segments"]["flats"] == 1
+    requests = len(web.requests)
+    inputs[0].unlink()  # neither OSM extract...
+    steeper = load_params(None, ["flat.max_local_grade_pct=0.1"])  # the 0.2 % slope is out
+    redone = run(inputs, tmp_path, web, params=steeper, redo=("segments",))
+    assert len(web.requests) == requests  # ... nor DEM
+    assert redone["steps"]["segments"]["flats"] == 0
+    assert read_segments(paths.segments) == []
+    for step in ("strokes", "dem", "profiles", "loops", "circuits"):
+        assert redone["steps"][step] == first["steps"][step]
+    assert redone["params"] == paths.params.read_text(encoding="utf-8") != first["params"]
+    assert batch._load_state(paths.state) == redone
+    assert run(inputs, tmp_path, web, params=steeper) == redone  # resumes with the new params
+
+
+def test_department_refuses_to_keep_profiles_made_with_other_parameters(
+    inputs: tuple[Path, Path], tmp_path: Path
+) -> None:
+    web = FakeWeb({download.WMS_URL: gentle_wms})
+    run(inputs, tmp_path, web)
+    other = load_params(None, ["profile.step_m=10"])
+    with pytest.raises(batch.StateError, match="profiles, circuits done with other profile"):
+        run(inputs, tmp_path, web, params=other, redo=("segments",))
+    with pytest.raises(ValueError, match="unknown steps: detect"):
+        run(inputs, tmp_path, web, redo=("detect",))
+
+
+def test_department_redoes_the_steps_reading_a_redone_step(
+    inputs: tuple[Path, Path], tmp_path: Path
+) -> None:
+    web = FakeWeb({download.WMS_URL: gentle_wms})
+    run(inputs, tmp_path, web, keep_dem=True)
+    requests = len(web.requests)
+    log: list[str] = []
+    batch.run_department(
+        "31",
+        *inputs,
+        tmp_path,
+        load_params(),
+        opener=web,
+        dem_resolution_m=20.0,
+        redo=("profiles",),
+        log=log.append,
+    )
+    assert [line.split(":")[0] for line in log] == ["31 profiles", "31 segments"]
+    assert len(web.requests) == requests  # the DEM kept on disk
+
+
 def test_departments_command_reports_failures_and_continues(
     inputs: tuple[Path, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -203,3 +258,13 @@ def test_department_keeps_the_tracks_whose_midpoint_is_inside(
     assert (loops["areas"], loops["tracks"]) == (2, 1)
     [track] = read_loops(batch.department_paths(tmp_path / "out" / "31").loops)
     assert track.osm_id == "way/50"
+
+
+def test_department_command_rejects_an_unknown_step(
+    inputs: tuple[Path, Path], tmp_path: Path
+) -> None:
+    pbf, outlines = inputs
+    args = ["--pbf", str(pbf), "--departments-file", str(outlines), "--root", str(tmp_path)]
+    result = CliRunner().invoke(cli.app, ["department", "31", "--redo", "detect", *args])
+    assert result.exit_code == 2
+    assert "unknown steps: detect" in result.output

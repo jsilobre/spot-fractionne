@@ -16,7 +16,10 @@ a margin (:data:`~flat_segments.departments.BORDER_MARGIN_M`):
 
 Outputs go to ``<root>/<code>/``. ``state.json`` records each finished step
 (duration, counts) and the parameters used: a new run resumes after the last
-finished step, and refuses to mix parameters.
+finished step, and refuses to keep a step finished with other parameters
+than the ones it reads (:data:`STEP_PARAMS`). ``redo`` drops steps first: with
+``redo=("segments",)``, detection runs again on the strokes and profiles on
+disk, with new detection parameters, without OSM extract or DEM.
 """
 
 from __future__ import annotations
@@ -24,7 +27,8 @@ from __future__ import annotations
 import json
 import shutil
 import time
-from collections.abc import Callable
+import tomllib
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
@@ -55,6 +59,21 @@ from flat_segments.params import WEB_CRS, WORK_CRS, PipelineParams
 STEPS: Final = ("strokes", "dem", "profiles", "segments", "loops", "circuits")
 #: Margin of the DEM fetched around circuits (``circuits`` step).
 CIRCUIT_DEM_MARGIN_M: Final = 50.0
+#: Parameter groups (tables of ``params_to_toml``) whose values each step reads.
+STEP_PARAMS: Final[dict[str, frozenset[str]]] = {
+    "strokes": frozenset({"network"}),
+    "dem": frozenset(),
+    "profiles": frozenset({"network", "profile"}),
+    "segments": frozenset({"network", "profile", "detection"}),
+    "loops": frozenset(),
+    "circuits": frozenset({"profile"}),
+}
+#: Steps that read the output of a step, and so are redone with it.
+STEP_READERS: Final[dict[str, tuple[str, ...]]] = {
+    "strokes": ("profiles", "segments"),
+    "dem": ("profiles", "segments"),
+    "profiles": ("segments",),
+}
 
 
 class StateError(RuntimeError):
@@ -107,6 +126,12 @@ def _save_state(path: Path, state: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
+def changed_groups(before: str, after: str) -> set[str]:
+    """Parameter groups that differ between two ``params_to_toml`` texts."""
+    old, new = tomllib.loads(before), tomllib.loads(after)
+    return {group for group in old.keys() | new.keys() if old.get(group) != new.get(group)}
+
+
 def _dir_size_mb(path: Path) -> float:
     return sum(f.stat().st_size for f in path.rglob("*") if f.is_file()) / 1e6
 
@@ -121,6 +146,7 @@ def run_department(
     opener: Opener = urlopen,
     keep_dem: bool = False,
     force: bool = False,
+    redo: Collection[str] = (),
     margin_m: float = BORDER_MARGIN_M,
     dem_resolution_m: float = DEM_RESOLUTION_M,
     dem_tile_size_m: float = DEM_TILE_SIZE_M,
@@ -138,6 +164,8 @@ def run_department(
         opener: URL opener for the DEM service (tests inject a fake one).
         keep_dem: Keep the DEM tiles at the end (deleted by default).
         force: Start again from scratch (the state is discarded).
+        redo: Steps to compute again (and the files they read must be there),
+            e.g. ``("segments",)`` to redo detection only.
         margin_m: Margin around the outline, so that border ways are not cut.
         dem_resolution_m: DEM pixel size.
         dem_tile_size_m: DEM tile size (one national grid of such tiles).
@@ -150,7 +178,9 @@ def run_department(
         counts.
 
     Raises:
-        StateError: If a previous run used other parameters (use ``force``).
+        StateError: If a finished step, not redone, used other parameters
+            (use ``force`` or ``redo``).
+        ValueError: If ``redo`` names an unknown step.
     """
     from flat_segments.circuits import find_candidates, select_circuits
     from flat_segments.export import (
@@ -173,11 +203,23 @@ def run_department(
     paths = department_paths(root / code)
     paths.root.mkdir(parents=True, exist_ok=True)
     params_toml = params_to_toml(params)
+    unknown = set(redo) - set(STEPS)
+    if unknown:
+        raise ValueError(f"unknown steps: {', '.join(sorted(unknown))}")
     state = {} if force else _load_state(paths.state)
+    for step in redo:
+        for dropped in (step, *STEP_READERS.get(step, ())):
+            state.get("steps", {}).pop(dropped, None)
     if state and state.get("params") != params_toml:
-        raise StateError(
-            f"{paths.state}: started with other parameters; rerun with --force to start again"
-        )
+        changed = changed_groups(state["params"], params_toml)
+        stale = [step for step in state["steps"] if STEP_PARAMS[step] & changed]
+        if stale:
+            raise StateError(
+                f"{paths.state}: {', '.join(stale)} done with other {', '.join(sorted(changed))}"
+                " parameters; rerun with --redo for these steps, or --force to start again"
+            )
+        state["params"] = params_toml
+        _save_state(paths.state, state)
     if not state:
         state = {"code": code, "name": department.name, "params": params_toml, "steps": {}}
     steps: dict[str, Any] = state["steps"]
