@@ -243,6 +243,16 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
 - `analytics.js` : comptage des visites avec GoatCounter (compte
   `spot-fractionne`, sans cookie ni donnée personnelle ; script copié dans
   `vendor/`). Le chemin compté garde `id` et `kind`, jamais la position.
+- Installation comme une appli (PWA) : `manifest.webmanifest` et `icons/`
+  décrivent l'appli ; `pwa.js` enregistre le service worker `sw.js` et
+  affiche le bouton « Installer l'appli » quand le navigateur le permet (sur
+  iPhone, une ligne d'aide renvoie au menu Partager). `sw.js` sert les fichiers
+  de la page réseau d'abord (un déploiement se voit tout de suite, la copie en
+  cache sert hors ligne) et les bibliothèques épinglées sur unpkg cache
+  d'abord. Il ne touche ni aux données (`data/`, R2), ni aux fonds de carte,
+  ni au géocodeur : hors ligne, la page s'ouvre mais sans segments. Les
+  listes `SHELL` et `CDN` de `sw.js` sont vérifiées par les tests contre
+  `index.html` et la liste de copie de `pages.yml`.
 - **Publication** : le workflow `.github/workflows/pages.yml` déploie `web/`
   (sans les tests) sur GitHub Pages à chaque modification sur `main`, avec
   les données de la release `data-latest` quand elle existe

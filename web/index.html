@@ -15,6 +15,10 @@
       crossorigin="anonymous"
     />
     <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1f6fb2" />
     <script type="importmap">
       {
         "imports": {
@@ -32,12 +36,17 @@
     </script>
     <script type="module" src="app.js"></script>
     <script type="module" src="analytics.js"></script>
+    <script type="module" src="pwa.js"></script>
   </head>
   <body>
     <aside class="panel" aria-label="Recherche de segments">
       <header class="panel-header">
         <h1>Spot Fractionné</h1>
         <p class="tagline">Des tronçons plats et des côtes près de chez vous, pour vos séances.</p>
+        <button id="install-button" class="install-button" type="button" hidden>Installer l'appli</button>
+        <p id="install-ios" class="hint" hidden>
+          Sur iPhone, installez l'appli avec Partager puis « Sur l'écran d'accueil ».
+        </p>
       </header>
 
       <p id="sample-banner" class="banner" hidden>
