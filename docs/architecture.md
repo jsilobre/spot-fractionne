@@ -182,6 +182,17 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   Course (style maison de `coursestyle.js` sur les mêmes tuiles : parcs et
   chemins mis en avant, routes discrètes), Plan IGN et photos aériennes (WMTS de la Géoplateforme IGN, sans clé),
   Relief (OpenTopoMap, courbes de niveau).
+- **Filtres**, par onglet (`kind`) :
+  - Plats : longueur minimale, pente locale max ;
+  - Côtes : longueur minimale et plage de pente, la pente minimale étant
+    comparée au passage le plus raide de cette longueur (`steep_{L}_pct`,
+    [`algorithm.md` § 8](algorithm.md#8-fusion-en-tronçons-maximaux)) ;
+  - Côtes longues : longueur déduite d'une durée d'effort et d'une allure
+    (`effortLengthM`), plage de pente ;
+  - Boucles : type (piste, parc, lac, quartier), pente locale max des
+    boucles du réseau, accès libre ;
+  - pour tous les segments : sans traversée, revêtement asphalte / béton, et
+    la distance de recherche.
 - **Position** :
   - géolocalisation de l'appareil ;
   - point placé sur la carte : bouton « Placer sur la carte », puis un clic.
@@ -229,7 +240,8 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   une tuile produite par tippecanoe en fixture ; `web/package.json` ne sert
   qu'aux tests).
 - **Liens directs** : `?id=<segment>` ouvre un segment, `?lat=…&lon=…` fixe la
-  position, `?kind=climb` affiche les côtes et `?kind=loop` les boucles.
+  position, `?kind=climb` affiche les côtes, `?kind=long_climb` les côtes
+  longues et `?kind=loop` les boucles.
   - La position du segment est lue dans `data/ids/`, puis on lit les tuiles
     autour d'elle.
   - Un identifiant d'une version précédente ouvre le segment qui le remplace,
@@ -347,7 +359,7 @@ flowchart TD
 |---|---|---|---|
 | **0 — Squelette** *(terminée)* | Documents d'architecture, logique pure testée, E/S testées sur fichiers synthétiques, front sur données fictives, CI | synthétiques | ce dépôt |
 | **1 — Prototype pilote** *(terminée)* | Téléchargements automatisés, configuration TOML, outils de calibrage, liens directs et déploiement Pages, exécution sur les vraies données, calibrage des seuils, publication, validation terrain (Labège / Caraman : 15 segments conformes sur 18, aucune erreur de pente ni de traversée) | OSM + MNT LiDAR HD de la zone pilote | site statique en ligne |
-| **2 — Couverture nationale par précalcul** *(à venir)* | Précalcul par département, export PMTiles, front sur tuiles ; d'abord l'ex-Midi-Pyrénées sur GitHub Pages, puis la France sur un stockage d'objets ([ADR 0008](adr/0008-couverture-nationale-precalcul-statique.md)) | OSM + MNT LiDAR HD (RGE ALTI où il manque), par département | site statique + PMTiles |
+| **2 — Couverture nationale par précalcul** *(terminée)* | Précalcul par département, export PMTiles, front sur tuiles ; d'abord l'ex-Midi-Pyrénées sur GitHub Pages, puis la France sur un stockage d'objets ([ADR 0008](adr/0008-couverture-nationale-precalcul-statique.md)) | OSM + MNT LiDAR HD (RGE ALTI où il manque), par département | site statique + PMTiles |
 | **3 — API** *(facultative)* | Seulement pour ce que le statique ne sait pas faire : étranger (MNT 30 m), mises à jour OSM au fil de l'eau, critères personnalisés, retours des utilisateurs | multi-sources | API + front |
 
 Critère de passage de la phase 1 à la phase 2 : sur un échantillon de segments

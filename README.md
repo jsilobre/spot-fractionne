@@ -2,14 +2,22 @@
 
 **Trouver, près de chez soi, les bouts de chemin parfaits pour une séance de course.**
 
+Le site : <https://jsilobre.github.io/spot-fractionne/> (toute la France
+métropolitaine ; il s'installe aussi comme une appli sur téléphone).
+
 **Spot Fractionné** (pipeline `flat-segments`) repère des tronçons courts exploitables pour l'entraînement
 autour d'une position (adresse, coordonnées GPS, point placé sur la carte ou
 position de l'appareil) :
 
 1. **Segments plats et courts** pour le fractionné et le travail d'allure :
    longueurs cibles 200 m, 400 m et 1 km (paramétrables), pente maximale faible.
-2. **Côtes** pour le travail en montée : longueur et pente moyenne cibles.
-3. **Boucles** pour enchaîner des tours sans demi-tour : les pistes
+2. **Côtes** pour le travail en montée : longueur de 100 m à 1 km et pente
+   cibles, la pente retenue étant celle du passage le plus raide de la
+   longueur choisie.
+3. **Côtes longues** pour les efforts de plusieurs minutes (4 × 6 min,
+   2 × 10 min…) : 1 km et plus, courts replats tolérés, longueur déduite d'une
+   durée d'effort et d'une allure.
+4. **Boucles** pour enchaîner des tours sans demi-tour : les pistes
    d'athlétisme d'OpenStreetMap (tour de 200 à 400 m, accès indiqué) et les
    boucles du réseau peu pentues (pente locale max réglable), de 200 m à 2 km (tour de parc, de lac, boucle de
    quartier sans voitures).
@@ -20,15 +28,15 @@ montée régulière à 6 % sur 200 m.
 
 ## Ce qui fait un bon segment
 
-| Critère | Plat | Côte |
-|---|---|---|
-| Longueur | ≥ longueur cible (200 / 400 / 1000 m) | ≥ longueur cible (100 à 800 m) |
-| Pente | pente locale max faible (2 %), pente moyenne ≤ 1 % | pente moyenne dans une plage (3 à 15 %), sans replat |
-| Traversées | aucune route importante, peu de routes secondaires | idem |
-| Tracé | droit ou peu sinueux | sinuosité tolérée plus forte (lacets) |
-| Revêtement / éclairage | asphalte, stabilisé, terre… ; éclairage si connu | idem |
-| Accès | praticable en aller-retour (pas d'accès privé, pas de sens unique piéton) | idem |
-| Proximité | distance à la position de l'utilisateur | idem |
+| Critère | Plat | Côte | Côte longue |
+|---|---|---|---|
+| Longueur | ≥ longueur cible (200 / 400 / 1000 m) | ≥ longueur cible (100 m à 1 km) | ≥ 1 km, ou la longueur d'un effort de N minutes à l'allure choisie |
+| Pente | pente locale max faible (2 %), pente moyenne ≤ 1 % | pente moyenne dans une plage (3 à 15 %), sans replat ; le site filtre sur le passage le plus raide | pente moyenne ≥ 2,5 %, replats et petites descentes tolérés sur 150 m |
+| Traversées | aucune route importante, peu de routes secondaires | idem | idem |
+| Tracé | droit ou peu sinueux | sinuosité tolérée plus forte (lacets) | lacets tolérés |
+| Revêtement / éclairage | asphalte, stabilisé, terre… ; éclairage si connu | idem | idem |
+| Accès | praticable en aller-retour (pas d'accès privé, pas de sens unique piéton, pas de route de service d'aéroport) | idem | idem |
+| Proximité | distance à la position de l'utilisateur | idem | idem |
 
 Le détail des calculs est dans [`docs/algorithm.md`](docs/algorithm.md).
 
@@ -59,7 +67,7 @@ Déjà en place :
   15 segments conformes sur 18 vérifiés, aucune erreur de pente ni de
   traversée.
 
-🚧 **Phase 2 en cours : couvrir toute la France par précalcul statique.** Voir
+✅ **Phase 2 terminée : toute la France par précalcul statique.** Voir
 l'[ADR 0008](docs/adr/0008-couverture-nationale-precalcul-statique.md) et le
 [plan](docs/architecture.md#51-plan-de-la-phase-2).
 
@@ -76,6 +84,21 @@ l'[ADR 0008](docs/adr/0008-couverture-nationale-precalcul-statique.md) et le
   publiés sur Cloudflare R2 ([2.5](docs/phase-2/2.5-france.md)). Là où
   l'IGN n'a pas encore publié le MNT LiDAR HD (7,5 % du territoire, dont
   Lille), la production passe sur le RGE ALTI.
+
+Ajouts depuis la mise en ligne nationale :
+- **Boucles** pour enchaîner des tours : pistes d'athlétisme
+  ([ADR 0014](docs/adr/0014-categorie-boucles.md)) puis tours de parcs, de
+  lacs et de quartiers sans voitures
+  ([ADR 0015](docs/adr/0015-boucles-du-reseau.md)), filtrables par type et par
+  pente locale maximale.
+- **Côtes longues** et filtre des côtes sur leur passage le plus raide
+  ([`algorithm.md` § 7.3](docs/algorithm.md#73-critères--côte-longue-)).
+- **Routes de service des aéroports** exclues du réseau
+  ([`algorithm.md` § 1](docs/algorithm.md#1-sélection-et-classement-des-voies)).
+- **Fonds de carte** au choix : Plan, Course, Plan IGN, photos aériennes,
+  relief.
+- **Appli installable** (PWA) et **mesure d'audience** sans cookie
+  (GoatCounter).
 
 Zone pilote : **Labège / Caraman** (sud-est de Toulouse, Haute-Garonne),
 emprise `1.48,43.48,1.80,43.59` (lon/lat WGS84).
@@ -142,11 +165,17 @@ uv run flat-segments export-pmtiles data/departments/*/segments.parquet --previo
 `--previous` garde les identifiants du jeu déjà publié : les liens partagés
 continuent de fonctionner ([ADR 0012](docs/adr/0012-identifiants-stables.md)).
 
+Pour republier sans tout recalculer (assemblage seul avec `reuse_run`, boucles
+du réseau seules avec `circuits_run`), voir
+[`architecture.md` § 8](docs/architecture.md#8-exploitation--corriger-sans-tout-recalculer).
+
 Si Geofabrik est inaccessible, `download-osm --url` accepte le miroir
 d'OpenStreetMap France (voir [`docs/data-sources.md`](docs/data-sources.md#téléchargement)).
 
 Chaque étape existe aussi séparément : `extract`, `elevation`, `detect` et
-`export`. Toutes acceptent un fichier de paramètres et des surcharges ponctuelles :
+`export`. Les boucles ont leurs propres commandes, hors de `pipeline` :
+`loops` (pistes d'athlétisme) et `circuits` (boucles du réseau), qui lisent
+l'extrait OSM complet. Toutes acceptent un fichier de paramètres et des surcharges ponctuelles :
 
 ```bash
 uv run flat-segments config > mes-parametres.toml          # paramètres effectifs (TOML)
@@ -193,13 +222,24 @@ gh release download data-latest --dir web/data && tar -xzf web/data/ids.tar.gz -
 ```
 
 Liens directs : `?id=<segment>` ouvre un segment, `?lat=…&lon=…` fixe la
-position, `?kind=climb` affiche les côtes et `?kind=loop` les boucles. Le workflow *Pages* publie `web/` à
+position, `?kind=climb` affiche les côtes, `?kind=long_climb` les côtes
+longues et `?kind=loop` les boucles. Le workflow *Pages* publie `web/` à
 chaque modification sur `main`. Il faut d'abord activer GitHub Pages dans
 *Settings → Pages → Source : GitHub Actions*.
 
 Régénérer le jeu d'exemple (tippecanoe requis) : `uv run python scripts/make_sample_data.py`.
 
-Tests du filtrage et du décodage des tuiles côté navigateur : `cd web && node --test`.
+Le site s'installe comme une appli (PWA : `manifest.webmanifest`, service
+worker `sw.js`) ; hors ligne, la page s'ouvre mais sans segments. Les visites
+sont comptées avec [GoatCounter](https://spot-fractionne.goatcounter.com),
+sans cookie, et la position n'est jamais transmise.
+
+Tout nouveau fichier du site doit être ajouté à la liste de copie de
+`.github/workflows/pages.yml` et, s'il est chargé par la page, à la liste
+`SHELL` de `sw.js` ; des tests le vérifient.
+
+Tests du front (filtrage, décodage des tuiles, géocodage, fonds de carte,
+PWA, déploiement) : `cd web && node --test`.
 
 ## Organisation du dépôt
 
@@ -216,10 +256,11 @@ data/                 données téléchargées et produites (non versionné)
 ## Documentation
 
 - [Architecture](docs/architecture.md) : composants, flux de données, phases
-- [Algorithme](docs/algorithm.md) : détection des plats et des côtes, paramètres
+- [Algorithme](docs/algorithm.md) : détection des plats, des côtes, des côtes longues et des boucles, paramètres
 - [Sources de données](docs/data-sources.md) : OSM, MNT LiDAR HD et RGE ALTI, projections, licences
 - [Modèle de données](docs/data-model.md) : schéma d'un segment
 - [Décisions d'architecture (ADR)](docs/adr/README.md)
+- [Rapports de la phase 2](docs/phase-2/2.5-france.md) et [validation terrain](docs/validation/README.md)
 
 ## Licences et attributions
 

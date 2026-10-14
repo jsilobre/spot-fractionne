@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Spot Fractionné (site name; the Python package and CLI keep the name `flat-segments`) finds short stretches for running workouts near a position: flat straight segments
-(200 m / 400 m / 1 km targets) and regular climbs. An offline Python pipeline precomputes every
+(200 m / 400 m / 1 km targets), regular climbs, long climbs (≥ 1 km, short flats tolerated) and
+loops (athletics tracks, park / lake / car-free block laps). An offline Python pipeline precomputes every
 segment for metropolitan France from OpenStreetMap + IGN elevation (LiDAR HD, RGE ALTI fallback);
 a static MapLibre page (`web/`, GitHub Pages) filters them in the browser. No server, no database.
 
@@ -68,7 +69,12 @@ Read `docs/architecture.md` for the full component table; key ideas that span fi
   not in the repo (ADR 0011, 0013); `pages.yml` fetches it at deploy time.
 - **Front** (`web/`): `app.js` wires MapLibre + PMTiles (ES modules from a CDN via an import map,
   pinned with SRI). Pure, tested logic lives in `filters.js` (criteria, `matches`, `mapFilter`, URL
-  state `?id=`, `?lat=&lon=`, `?kind=climb|loop`), `tiles.js` (z12 tile decoding, tiles covering the
+  state `?id=`, `?lat=&lon=`, `?kind=climb|long_climb|loop`), `tiles.js` (z12 tile decoding, tiles covering the
   ≤ 10 km search circle) and `geocode.js` (IGN geocoder). The result list is built from z12 tiles;
   the map's MapLibre filter expression must select exactly what `matches` selects.
+  `basemaps.js` / `coursestyle.js` hold the basemaps, `pwa.js` + `sw.js` + `manifest.webmanifest`
+  make the site installable, `analytics.js` counts visits (GoatCounter, never the position).
+- **Gotcha, Pages deploy**: `pages.yml` copies site files one by one from an explicit list; any new
+  `web/` file must be added there (and to `SHELL` in `sw.js` if the page loads it), or the live
+  site breaks. `web/tests/pages.test.js` and `pwa.test.js` check this.
 - Design decisions are recorded as ADRs in `docs/adr/`; phase-2 reports in `docs/phase-2/`.
