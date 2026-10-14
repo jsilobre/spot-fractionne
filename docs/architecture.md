@@ -99,7 +99,8 @@ Le découpage en quatre étapes permet de régler les seuils de détection
 Un département est traité sur son contour élargi de 2 km. On garde les
 segments dont le milieu est dans le département, si bien que chaque segment
 appartient à un seul département. Chaque étape terminée est notée dans
-`state.json`, et une relance reprend après la dernière.
+`state.json`, et une relance reprend après la dernière. `--redo segments`
+refait la seule détection sur les strokes et profils déjà calculés.
 
 **Paramètres.** Les étapes utilisent les valeurs par défaut de `params.py`,
 remplacées par un fichier TOML (`--config`, modèle dans
@@ -448,4 +449,17 @@ lancement précédent (artefacts gardés 7 jours) et ne refait que leur étape
 `circuits` : pas de nouvel extrait OSM, et le MNT n'est téléchargé qu'autour
 des boucles candidates. Les segments, profils et pistes restent ceux du
 lancement repris.
+
+Quand la correction ne touche que la **détection** (`detect.py`,
+`profile.py`, paramètres `detection`), l'option `detect_run` du workflow
+Production repart des départements d'un lancement précédent et ne refait que
+leur étape `segments` (`department --redo segments`), sur les strokes et les
+profils d'altitude de ce lancement (artefacts `profiles-CODE`, gardés 7 jours
+comme les autres). Ni extrait OSM, ni MNT : le MNT représente environ 85 % du
+calcul d'un département (26 min sur 30 pour l'Aisne, lancement 18). Sans
+requête à l'IGN, `max_parallel` peut monter à 20. Les boucles et les pistes
+restent celles du lancement repris. Si les paramètres `network` ou `profile`
+ont changé, le département est refusé : il faut alors un calcul complet. Un
+lancement `detect_run` republie aussi ses profils, pour en enchaîner un autre.
+Seuls les lancements faits depuis cette option ont ces artefacts.
 

@@ -373,6 +373,13 @@ DepartmentsFileOpt = Annotated[
 RootOpt = Annotated[Path, typer.Option(help="Output folder (one sub-folder per département).")]
 KeepDemOpt = Annotated[bool, typer.Option(help="Keep the DEM tiles after sampling.")]
 ForceOpt = Annotated[bool, typer.Option(help="Start again from scratch.")]
+RedoOpt = Annotated[
+    list[str] | None,
+    typer.Option(
+        help="Step to compute again, with the steps reading it (repeatable): e.g. "
+        "--redo segments redoes detection on the strokes and profiles on disk."
+    ),
+]
 
 
 @app.command("download-departments")
@@ -399,6 +406,7 @@ def _run_departments(
     params: PipelineParams,
     keep_dem: bool,
     force: bool,
+    redo: list[str],
 ) -> dict[str, dict[str, object] | str]:
     from flat_segments import download as dl
     from flat_segments.batch import run_department
@@ -415,6 +423,7 @@ def _run_departments(
                 opener=dl.urlopen,
                 keep_dem=keep_dem,
                 force=force,
+                redo=redo,
                 log=typer.echo,
             )
         except Exception as error:  # one failure must not stop the batch
@@ -431,11 +440,12 @@ def department(
     root: RootOpt = DEPARTMENTS_ROOT,
     keep_dem: KeepDemOpt = False,
     force: ForceOpt = False,
+    redo: RedoOpt = None,
     config: ConfigOpt = None,
     overrides: SetOpt = None,
 ) -> None:
     """Process one département (resumable): strokes, DEM, profiles, segments, loops, circuits."""
-    departments([code], pbf, departments_file, root, keep_dem, force, config, overrides)
+    departments([code], pbf, departments_file, root, keep_dem, force, redo, config, overrides)
 
 
 @app.command()
@@ -446,14 +456,20 @@ def departments(
     root: RootOpt = DEPARTMENTS_ROOT,
     keep_dem: KeepDemOpt = False,
     force: ForceOpt = False,
+    redo: RedoOpt = None,
     config: ConfigOpt = None,
     overrides: SetOpt = None,
 ) -> None:
     """Process several départements in turn; a failure does not stop the others."""
-    from flat_segments.batch import summary_table
+    from flat_segments.batch import STEPS, summary_table
 
+    unknown = sorted(set(redo or []) - set(STEPS))
+    if unknown:
+        raise typer.BadParameter(f"unknown steps: {' '.join(unknown)} (steps: {' '.join(STEPS)})")
     params = get_params(config, overrides)
-    states = _run_departments(codes, pbf, departments_file, root, params, keep_dem, force)
+    states = _run_departments(
+        codes, pbf, departments_file, root, params, keep_dem, force, redo or []
+    )
     typer.echo(summary_table(states), nl=False)
     if any(isinstance(state, str) for state in states.values()):
         raise typer.Exit(1)
