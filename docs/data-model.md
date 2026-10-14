@@ -29,7 +29,7 @@ Fichiers : `data/processed/segments.parquet` (GeoParquet) et
 | Champ | Type | Unité | Description |
 |---|---|---|---|
 | `id` | `str` | — | Identifiant stable `"{kind}-{12 hex}"`, voir [`algorithm.md` § 12](algorithm.md#12-identifiant-stable) |
-| `kind` | `"flat"` \| `"climb"` | — | Type de segment |
+| `kind` | `"flat"` \| `"climb"` \| `"long_climb"` | — | Type de segment (côte longue : § 7.3 de l'algorithme) |
 | `geometry` | `LineString` | — | Sous-polyligne exacte du réseau OSM ; côtes orientées vers le haut |
 | `length_m` | `float` | m | Longueur le long de la géométrie |
 | `elev_start_m` | `float` | m | Altitude (lissée) au début |

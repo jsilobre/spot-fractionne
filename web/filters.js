@@ -12,6 +12,8 @@ export const DEFAULT_CRITERIA = Object.freeze({
   minMeanGradePct: 3,
   maxMeanGradePct: 15,
   maxDistanceM: 5000,
+  effortMin: 6,
+  paceSecPerKm: 330,
   noCrossing: false,
   pavedOnly: false,
   publicOnly: false,
@@ -26,8 +28,16 @@ export function loopType(properties) {
   return properties.loop_type === "circuit" ? properties.setting : "track";
 }
 
-/** Kinds of results: flat segments, climbs and loops (running tracks). */
-export const KINDS = Object.freeze(["flat", "climb", "loop"]);
+/** Kinds of results: flat segments, climbs, long climbs and loops. */
+export const KINDS = Object.freeze(["flat", "climb", "long_climb", "loop"]);
+
+/**
+ * Minimum length of a long climb for an effort of `minutes` at a pace of
+ * `paceSecPerKm` (seconds per kilometre), rounded to 10 m.
+ */
+export function effortLengthM(minutes, paceSecPerKm) {
+  return Math.round((minutes * 60 * 1000) / paceSecPerKm / 10) * 10;
+}
 
 /**
  * Above this sinuosity (length / distance between the ends), a segment is shown
@@ -261,9 +271,9 @@ export function featuresBounds(features) {
 }
 
 /**
- * Read the page state from a query string: `?id=…`, `?kind=flat|climb|loop`,
+ * Read the page state from a query string: `?id=…`, `?kind=flat|climb|long_climb|loop`,
  * `?lat=…&lon=…`. Invalid values are ignored.
- * @returns {{id: string | null, kind: "flat" | "climb" | "loop" | null, position: [number, number] | null}}
+ * @returns {{id: string | null, kind: "flat" | "climb" | "long_climb" | "loop" | null, position: [number, number] | null}}
  */
 export function parseUrlState(search) {
   const params = new URLSearchParams(search);

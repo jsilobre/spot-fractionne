@@ -260,6 +260,7 @@ def run_department(
             detected=len(detected),
             flats=sum(s.kind is SegmentKind.FLAT for s in kept),
             climbs=sum(s.kind is SegmentKind.CLIMB for s in kept),
+            long_climbs=sum(s.kind is SegmentKind.LONG_CLIMB for s in kept),
             km=round(sum(s.length_m for s in kept) / 1000, 1),
         )
 

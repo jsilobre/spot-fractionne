@@ -78,6 +78,8 @@
           <label for="kind-flat">Plats</label>
           <input type="radio" id="kind-climb" name="kind" value="climb" />
           <label for="kind-climb">Côtes</label>
+          <input type="radio" id="kind-long_climb" name="kind" value="long_climb" />
+          <label for="kind-long_climb">Côtes longues</label>
           <input type="radio" id="kind-loop" name="kind" value="loop" />
           <label for="kind-loop">Boucles</label>
         </fieldset>
@@ -93,18 +95,46 @@
           </select>
         </label>
 
+        <div class="field" data-kind="long_climb" hidden>
+          <span>Effort <output id="effort-value"></output></span>
+          <div class="row">
+            <label class="sr-only" for="effort-min">Durée de l'effort</label>
+            <select id="effort-min">
+              <option value="3">3 min</option>
+              <option value="4">4 min</option>
+              <option value="5">5 min</option>
+              <option value="6" selected>6 min</option>
+              <option value="8">8 min</option>
+              <option value="10">10 min</option>
+              <option value="12">12 min</option>
+              <option value="15">15 min</option>
+            </select>
+            <label class="sr-only" for="pace">Allure en côte</label>
+            <select id="pace">
+              <option value="240">à 4:00/km</option>
+              <option value="270">à 4:30/km</option>
+              <option value="300">à 5:00/km</option>
+              <option value="330" selected>à 5:30/km</option>
+              <option value="360">à 6:00/km</option>
+              <option value="390">à 6:30/km</option>
+              <option value="420">à 7:00/km</option>
+              <option value="480">à 8:00/km</option>
+            </select>
+          </div>
+        </div>
+
         <label class="field" for="max-local-grade" data-kind="flat">
           <span>Pente locale max <output id="max-local-grade-value"></output></span>
           <input id="max-local-grade" type="range" min="0.5" max="2" step="0.1" value="2" />
         </label>
 
-        <div class="field" data-kind="climb" hidden>
+        <div class="field" data-kind="climb long_climb" hidden>
           <span>Pente moyenne <output id="mean-grade-value"></output></span>
           <div class="row">
             <label class="sr-only" for="min-mean-grade">Pente moyenne minimale</label>
-            <input id="min-mean-grade" type="range" min="3" max="15" step="0.5" value="3" />
+            <input id="min-mean-grade" type="range" min="2.5" max="15" step="0.5" value="3" />
             <label class="sr-only" for="max-mean-grade">Pente moyenne maximale</label>
-            <input id="max-mean-grade" type="range" min="3" max="15" step="0.5" value="15" />
+            <input id="max-mean-grade" type="range" min="2.5" max="15" step="0.5" value="15" />
           </div>
         </div>
 
@@ -113,8 +143,8 @@
           <input id="max-distance" type="range" min="0.5" max="10" step="0.5" value="5" />
         </label>
 
-        <label class="check" data-kind="flat climb"><input id="no-crossing" type="checkbox" /> Sans traversée de route</label>
-        <label class="check" data-kind="flat climb"><input id="paved-only" type="checkbox" /> Revêtement asphalte / béton</label>
+        <label class="check" data-kind="flat climb long_climb"><input id="no-crossing" type="checkbox" /> Sans traversée de route</label>
+        <label class="check" data-kind="flat climb long_climb"><input id="paved-only" type="checkbox" /> Revêtement asphalte / béton</label>
         <p class="hint" data-kind="loop" hidden>Pistes d'athlétisme, et boucles autour d'un parc, d'un lac ou d'un quartier sans voitures (200 m à 2 km), d'après OpenStreetMap.</p>
         <fieldset class="check-row" data-kind="loop" hidden>
           <legend class="sr-only">Types de boucles</legend>

@@ -59,7 +59,7 @@ def test_tileset_metadata() -> None:
     assert metadata["generated_at"] == "2026-10-01T00:00:00Z"
     assert metadata["sample"] is False
     assert metadata["attribution"][0] == OSM_ATTRIBUTION
-    assert metadata["counts"] == {"flat": 1, "climb": 0, "loop": 0}
+    assert metadata["counts"] == {"flat": 1, "climb": 0, "long_climb": 0, "loop": 0}
     west, south, east, north = metadata["bounds"]
     assert west < east
     assert south < north
@@ -124,7 +124,7 @@ def test_export_pmtiles_command_merges_departments(tmp_path: Path) -> None:
     result = CliRunner().invoke(cli.app, ["export-pmtiles", str(a), str(b), "--out-dir", str(out)])
     assert result.exit_code == 0, result.output
     metadata = json.loads((out / "segments.json").read_text())
-    assert metadata["counts"] == {"flat": 1, "climb": 1, "loop": 0}
+    assert metadata["counts"] == {"flat": 1, "climb": 1, "long_climb": 0, "loop": 0}
     assert metadata["params"] == {"x": 1}
     assert (out / "ids" / "00.json").exists()
 

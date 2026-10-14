@@ -195,6 +195,26 @@ def test_climb_with_a_steep_end_records_its_steepest_stretches() -> None:
     assert all(f.steep_100_pct is None for f in flats)
 
 
+def test_long_climb_goes_over_a_replat_that_cuts_climbs() -> None:
+    stroke = straight_stroke(2000)
+    z = raw_profile(stroke, piecewise((200, 0), (700, 5), (100, 0), (700, 4), (300, 0)))
+    segments = run(stroke, z)
+    climbs = of_kind(segments, dt.SegmentKind.CLIMB)
+    [long_climb] = of_kind(segments, dt.SegmentKind.LONG_CLIMB)
+    assert len(climbs) == 2
+    assert long_climb.length_m == pytest.approx(1500, abs=50)
+    assert long_climb.grade_mean_pct == pytest.approx(4.2, abs=0.4)
+    assert long_climb.id.startswith("long_climb-")
+    assert long_climb.fits_targets_m == (1000, 1500)
+    assert long_climb.steep_100_pct == pytest.approx(5, abs=0.5)
+
+
+def test_short_climbs_are_not_long_climbs() -> None:
+    stroke = straight_stroke(900)
+    z = raw_profile(stroke, piecewise((300, 0), (300, 6), (300, 0)))
+    assert of_kind(run(stroke, z), dt.SegmentKind.LONG_CLIMB) == []
+
+
 def test_descending_stroke_gives_the_same_climb_reversed() -> None:
     stroke = straight_stroke(900)
     z = raw_profile(stroke, piecewise((300, 0), (300, -6), (300, 0)))

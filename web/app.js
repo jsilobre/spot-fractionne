@@ -8,6 +8,7 @@ import {
   buildUrlSearch,
   circlePolygon,
   DEFAULT_CRITERIA,
+  effortLengthM,
   featuresBounds,
   filterSegments,
   haversineMeters,
@@ -42,7 +43,7 @@ const FALLBACK_STYLE = {
 };
 const INITIAL_VIEW = { center: [1.535, 43.53], zoom: 13 };
 const MAX_RESULTS = 50;
-const COLORS = { flat: "#1f6fb2", climb: "#d4570f", loop: "#2a8a4a" };
+const COLORS = { flat: "#1f6fb2", climb: "#d4570f", long_climb: "#a0207a", loop: "#2a8a4a" };
 // Radius of the tiles read to open a linked segment around its indexed position.
 const LINK_RADIUS_M = 1500;
 // Pause in the typing before suggesting addresses.
@@ -104,7 +105,8 @@ const fmt = (value, digits = 0) =>
 
 const formatLength = (m) => (m >= 1000 ? `${fmt(m / 1000, 2)} km` : `${fmt(m)} m`);
 
-const kindLabel = (kind) => ({ flat: "Plat", climb: "Côte", loop: "Piste" })[kind] ?? kind;
+const kindLabel = (kind) =>
+  ({ flat: "Plat", climb: "Côte", long_climb: "Côte longue", loop: "Piste" })[kind] ?? kind;
 
 /** Circuits of the network, by setting. */
 const SETTING_LABELS = { water: "Tour de lac", park: "Tour de parc", neighbourhood: "Boucle de quartier" };
@@ -118,6 +120,13 @@ const loopLabel = (p) => (isCircuit(p) ? (SETTING_LABELS[p.setting] ?? "Boucle")
 const formatLap = (p) => {
   if (isCircuit(p)) return formatLength(p.length_m);
   return p.lap_m != null ? formatLength(p.lap_m) : `environ ${formatLength(p.length_m)}`;
+};
+
+/** Time to run `lengthM` at `paceSecPerKm`, e.g. "6 min 30". */
+const formatDuration = (lengthM, paceSecPerKm) => {
+  const seconds = Math.round(((lengthM / 1000) * paceSecPerKm) / 10) * 10;
+  const rest = seconds % 60;
+  return `${Math.floor(seconds / 60)} min${rest ? ` ${String(rest).padStart(2, "0")}` : ""}`;
 };
 
 const crossings = (n) => `${fmt(n)} traversée${n > 1 ? "s" : ""}`;
@@ -178,7 +187,7 @@ function loopPopupHtml(p, distanceM) {
 
 /** Rows "Plus raide sur 100 m"… of a climb, for the lengths it covers. */
 function steepRows(p) {
-  if (p.kind !== "climb") return [];
+  if (p.kind === "flat") return [];
   return [100, 200, 400]
     .filter((lengthM) => p[`steep_${lengthM}_pct`] != null)
     .map((lengthM) => [`Plus raide sur ${formatLength(lengthM)}`, `${fmt(p[`steep_${lengthM}_pct`], 1)} %`]);
@@ -322,7 +331,17 @@ function addSegmentLayers() {
     url: `pmtiles://${state.archive.source.getKey()}`,
     promoteId: { [tiles.layer]: "id", [tiles.overview_layer]: "id" },
   });
-  const color = ["match", ["get", "kind"], "flat", COLORS.flat, "climb", COLORS.climb, COLORS.loop];
+  const color = [
+    "match",
+    ["get", "kind"],
+    "flat",
+    COLORS.flat,
+    "climb",
+    COLORS.climb,
+    "long_climb",
+    COLORS.long_climb,
+    COLORS.loop,
+  ];
   const selected = ["boolean", ["feature-state", "selected"], false];
   // Zoom may only appear at the top level of an interpolate expression.
   const width = (low, high, factor) => [
@@ -573,6 +592,7 @@ function renderResults() {
       if (p.kind === "climb" && p.grade_mean_pct < state.criteria.minMeanGradePct) {
         grade += ` (dont ${formatLength(lengthM)} à ${fmt(steepGrade(p, lengthM), 1)} %)`;
       }
+      if (p.kind === "long_climb") grade += ` · ${formatDuration(p.length_m, state.criteria.paceSecPerKm)}`;
       meta = [
         formatLength(p.length_m),
         grade,
@@ -682,7 +702,10 @@ function showPosition() {
 function readControls() {
   const c = state.criteria;
   c.kind = document.querySelector('input[name="kind"]:checked').value;
-  c.minLengthM = Number($("min-length").value);
+  c.effortMin = Number($("effort-min").value);
+  c.paceSecPerKm = Number($("pace").value);
+  c.minLengthM =
+    c.kind === "long_climb" ? effortLengthM(c.effortMin, c.paceSecPerKm) : Number($("min-length").value);
   c.maxLocalGradePct = Number($("max-local-grade").value);
   c.maxLoopGradePct = Number($("max-loop-grade").value);
   let lo = Number($("min-mean-grade").value);
@@ -699,6 +722,7 @@ function readControls() {
 
   $("max-local-grade-value").textContent = `${fmt(c.maxLocalGradePct, 1)} %`;
   $("max-loop-grade-value").textContent = `${fmt(c.maxLoopGradePct, 1)} %`;
+  $("effort-value").textContent = `${formatLength(effortLengthM(c.effortMin, c.paceSecPerKm))} minimum`;
   $("mean-grade-value").textContent = `${fmt(lo, 1)} à ${fmt(hi, 1)} %`;
   $("max-distance-value").textContent = `${fmt(c.maxDistanceM / 1000, 1)} km`;
   for (const element of document.querySelectorAll("[data-kind]")) {

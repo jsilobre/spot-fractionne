@@ -172,6 +172,16 @@ class ClimbParams:
         _check(self.max_sinuosity > 1, "climb.max_sinuosity must be greater than 1")
 
 
+def _long_climb_params() -> ClimbParams:
+    """Long climbs (section 7.3): replats and bends tolerated, 1 km and more."""
+    return ClimbParams(
+        target_lengths_m=(1000.0, 1500.0, 2000.0, 3000.0),
+        min_mean_grade_pct=2.5,
+        max_flat_stretch_m=150.0,
+        max_sinuosity=3.0,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class DedupParams:
     """Cross-stroke deduplication (section 11).
@@ -196,6 +206,7 @@ class DetectionParams:
     window_step_m: float = 10.0
     flat: FlatParams = field(default_factory=FlatParams)
     climb: ClimbParams = field(default_factory=ClimbParams)
+    long_climb: ClimbParams = field(default_factory=_long_climb_params)
     dedup: DedupParams = field(default_factory=DedupParams)
 
     def __post_init__(self) -> None:

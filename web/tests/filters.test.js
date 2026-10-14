@@ -6,6 +6,7 @@ import {
   circlePolygon,
   buildUrlSearch,
   DEFAULT_CRITERIA,
+  effortLengthM,
   distanceToLineMeters,
   featuresBounds,
   filterSegments,
@@ -130,6 +131,17 @@ test("a long climb with a steep stretch of the minimum length passes a steep fil
   assert.equal(matches({ kind: "climb", length_m: 514, grade_mean_pct: 7.5 }, c), false);
 });
 
+test("effortLengthM turns a duration and a pace into a minimum length", () => {
+  assert.equal(effortLengthM(6, 330), 1090);
+  assert.equal(effortLengthM(10, 300), 2000);
+  const c = { ...DEFAULT_CRITERIA, kind: "long_climb", minLengthM: effortLengthM(6, 330) };
+  const p = { kind: "long_climb", length_m: 1500, grade_mean_pct: 4.2, n_crossings: 0, surface: "paved" };
+  assert.equal(matches(p, c), true);
+  assert.equal(matches({ ...p, length_m: 1000 }, c), false);
+  assert.equal(matches({ ...p, kind: "climb" }, c), false);
+  assert.equal(parseUrlState("?kind=long_climb").kind, "long_climb");
+});
+
 test("filterSegments applies the distance limit only with a position", () => {
   const close = feature({ score: 50 });
   const far = feature({ score: 90 }, [[1.7, 43.6], [1.705, 43.6]]);
@@ -239,6 +251,8 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { id: "d", kind: "climb", length_m: 300, grade_mean_pct: 2.97, n_crossings: 0, surface: "paved" },
     { id: "e", kind: "climb", length_m: 300, grade_mean_pct: 8, n_crossings: 1, surface: "unknown" },
     { id: "e2", kind: "climb", length_m: 514, grade_mean_pct: 7.5, steep_100_pct: 13.5, steep_200_pct: 12.3, steep_400_pct: 8.7, n_crossings: 6, surface: "paved" },
+    { id: "l1", kind: "long_climb", length_m: 1500, grade_mean_pct: 4.2, steep_100_pct: 6, steep_1000_pct: 4.6, n_crossings: 0, surface: "paved" },
+    { id: "l2", kind: "long_climb", length_m: 1050, grade_mean_pct: 2.7, n_crossings: 2, surface: "unknown" },
     { id: "f", kind: "loop", length_m: 199, access: "public", surface: "unknown" },
     { id: "g", kind: "loop", length_m: 398, access: "unknown", surface: "paved" },
     { id: "h", kind: "loop", loop_type: "circuit", setting: "water", length_m: 800, access: "public", grade_max_pct: 1.9 },
@@ -260,6 +274,8 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 100, minMeanGradePct: 10 },
     { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 400, minMeanGradePct: 9 },
     { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 1000, minMeanGradePct: 3 },
+    { ...DEFAULT_CRITERIA, kind: "long_climb", minLengthM: 1090, minMeanGradePct: 2.5 },
+    { ...DEFAULT_CRITERIA, kind: "long_climb", minLengthM: 1000, minMeanGradePct: 4.5, noCrossing: true },
   ];
   for (const criteria of variants) {
     for (const p of segments) {

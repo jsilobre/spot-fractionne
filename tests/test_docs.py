@@ -30,6 +30,7 @@ def parameter_groups() -> dict[str, Any]:
         "detection": params.detection,
         "flat": params.detection.flat,
         "climb": params.detection.climb,
+        "long_climb": params.detection.long_climb,
         "dedup": params.detection.dedup,
     }
 
