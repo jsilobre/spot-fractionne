@@ -94,6 +94,10 @@ h2 {
   font-size: 12px;
 }
 
+.install-button {
+  margin-top: 8px;
+}
+
 .banner {
   margin: 0;
   padding: 8px 10px;
