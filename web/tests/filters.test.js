@@ -20,6 +20,7 @@ import {
   parseLatLon,
   parseUrlState,
   sortResults,
+  steepGrade,
 } from "../filters.js";
 
 const near = (actual, expected, tolerance) =>
@@ -118,6 +119,17 @@ test("climb criteria use the mean grade range", () => {
   assert.equal(matches(feature({ kind: "climb", grade_mean_pct: 9 }).properties, c), false);
 });
 
+test("a long climb with a steep stretch of the minimum length passes a steep filter", () => {
+  const c = { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 100, minMeanGradePct: 10, maxMeanGradePct: 15 };
+  const p = { kind: "climb", length_m: 514, grade_mean_pct: 7.5, steep_100_pct: 13.5, steep_200_pct: 12.3 };
+  assert.equal(steepGrade(p, 100), 13.5);
+  assert.equal(matches(p, c), true);
+  assert.equal(matches(p, { ...c, minLengthM: 200, minMeanGradePct: 12.5 }), false);
+  // Tiles without the steep fields: the mean grade of the whole climb.
+  assert.equal(steepGrade({ grade_mean_pct: 7.5 }, 100), 7.5);
+  assert.equal(matches({ kind: "climb", length_m: 514, grade_mean_pct: 7.5 }, c), false);
+});
+
 test("filterSegments applies the distance limit only with a position", () => {
   const close = feature({ score: 50 });
   const far = feature({ score: 90 }, [[1.7, 43.6], [1.705, 43.6]]);
@@ -202,7 +214,8 @@ test("segments whose ends are close are shown as loops", () => {
 function evaluate(expression, properties) {
   const [op, ...args] = expression;
   const value = (arg) => (Array.isArray(arg) ? evaluate(arg, properties) : arg);
-  if (op === "get") return properties[args[0]];
+  if (op === "get") return properties[args[0]] ?? null;
+  if (op === "coalesce") return args.map(value).find((v) => v !== null) ?? null;
   if (op === "literal") return args[0];
   if (op === "match") {
     const [input, labels, then, otherwise] = args;
@@ -225,6 +238,7 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { id: "c", kind: "flat", length_m: 900, grade_max_pct: 2.5, n_crossings: 2, surface: "gravel" },
     { id: "d", kind: "climb", length_m: 300, grade_mean_pct: 2.97, n_crossings: 0, surface: "paved" },
     { id: "e", kind: "climb", length_m: 300, grade_mean_pct: 8, n_crossings: 1, surface: "unknown" },
+    { id: "e2", kind: "climb", length_m: 514, grade_mean_pct: 7.5, steep_100_pct: 13.5, steep_200_pct: 12.3, steep_400_pct: 8.7, n_crossings: 6, surface: "paved" },
     { id: "f", kind: "loop", length_m: 199, access: "public", surface: "unknown" },
     { id: "g", kind: "loop", length_m: 398, access: "unknown", surface: "paved" },
     { id: "h", kind: "loop", loop_type: "circuit", setting: "water", length_m: 800, access: "public", grade_max_pct: 1.9 },
@@ -243,6 +257,9 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { ...DEFAULT_CRITERIA, kind: "loop", maxLoopGradePct: 2 },
     { ...DEFAULT_CRITERIA, noCrossing: true, pavedOnly: true, maxLocalGradePct: 3, minLengthM: 100 },
     { ...DEFAULT_CRITERIA, kind: "climb", minMeanGradePct: 5, maxMeanGradePct: 10 },
+    { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 100, minMeanGradePct: 10 },
+    { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 400, minMeanGradePct: 9 },
+    { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 1000, minMeanGradePct: 3 },
   ];
   for (const criteria of variants) {
     for (const p of segments) {

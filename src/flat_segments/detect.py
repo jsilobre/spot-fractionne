@@ -82,6 +82,34 @@ class Segment:
     stroke_id: str
     stroke_start_m: float
     stroke_end_m: float
+    # Climbs only: steepest mean grade over a stretch of each STEEP_LENGTHS_M
+    # (None for flats, or when the climb is shorter).
+    steep_100_pct: float | None = None
+    steep_200_pct: float | None = None
+    steep_400_pct: float | None = None
+    steep_800_pct: float | None = None
+    steep_1000_pct: float | None = None
+
+
+#: Lengths of the steepest stretches recorded on climbs (the minimum lengths of
+#: the web page), so that a long climb with a steep end passes a steep filter.
+STEEP_LENGTHS_M: Final = (100, 200, 400, 800, 1000)
+
+
+def steepest_grades(z: FloatArray, step: float) -> dict[str, float | None]:
+    """Steepest mean grade over each of ``STEEP_LENGTHS_M``, on a climbing profile.
+
+    ``z`` is sampled every ``step`` metres in the climbing direction. A length
+    longer than the profile gets None.
+    """
+    grades: dict[str, float | None] = {}
+    for length in STEEP_LENGTHS_M:
+        n = samples_for(length, step)
+        value = None
+        if step > 0 and len(z) > n:
+            value = float(np.max(z[n:] - z[:-n])) * 100.0 / (n * step)
+        grades[f"steep_{length}_pct"] = value
+    return grades
 
 
 # --- sliding windows --------------------------------------------------------
@@ -477,6 +505,7 @@ def _make_segment(
         stroke_id=stroke.id,
         stroke_start_m=start,
         stroke_end_m=end,
+        **(steepest_grades(z, profile.step) if kind is SegmentKind.CLIMB else {}),
     )
 
 

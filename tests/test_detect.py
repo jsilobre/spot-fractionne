@@ -173,6 +173,28 @@ def test_regular_climb_is_detected_trimmed_and_oriented_uphill() -> None:
     assert climb.score > 70
 
 
+def test_steepest_grades_per_length() -> None:
+    z = np.concatenate([np.arange(100) * 0.2, 19.8 + np.arange(1, 41) * 0.6])  # 4 % then 12 %
+    grades = dt.steepest_grades(z, 5.0)
+    assert grades["steep_100_pct"] == pytest.approx(12)
+    assert grades["steep_200_pct"] == pytest.approx(12)
+    assert grades["steep_400_pct"] == pytest.approx(8)
+    assert grades["steep_800_pct"] is None
+    assert grades["steep_1000_pct"] is None
+
+
+def test_climb_with_a_steep_end_records_its_steepest_stretches() -> None:
+    stroke = straight_stroke(1000)
+    z = raw_profile(stroke, piecewise((200, 0), (400, 4), (200, 12), (200, 0)))
+    [climb] = of_kind(run(stroke, z), dt.SegmentKind.CLIMB)
+    assert climb.grade_mean_pct == pytest.approx(6.7, abs=0.7)
+    assert climb.steep_100_pct == pytest.approx(12, abs=0.6)
+    assert climb.steep_200_pct == pytest.approx(12, abs=1)
+    assert climb.steep_800_pct is None
+    flats = of_kind(run(stroke, z), dt.SegmentKind.FLAT)
+    assert all(f.steep_100_pct is None for f in flats)
+
+
 def test_descending_stroke_gives_the_same_climb_reversed() -> None:
     stroke = straight_stroke(900)
     z = raw_profile(stroke, piecewise((300, 0), (300, -6), (300, 0)))

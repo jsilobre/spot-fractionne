@@ -263,6 +263,12 @@ Voir [ADR 0006](adr/0006-strokes-et-troncons-maximaux.md).
   une fenêtre de longueur `T` incluse dans le tronçon (pas d'un échantillon)
   respecte les critères du § 7. Un plat de 1,3 km dont la pente moyenne
   dépasse 1 % sur tout kilomètre aura ainsi `fits_targets_m = [200, 400]`.
+- **`steep_{L}_pct`** (côtes) : pour `L` = 100, 200, 400, 800 et 1000 m,
+  la pente moyenne maximale d'une fenêtre de longueur `L` incluse dans la côte.
+  Une longue côte à pente irrégulière (rue du Dix Avril, Toulouse : 514 m à
+  7,5 % de moyenne, dont 100 m à 13,5 %) passe ainsi un filtre « 100 m, 10 %
+  minimum » sur le site, qui compare la pente minimale à `steep_{L}_pct` pour
+  la longueur minimale choisie (et la pente maximale à `grade_mean_pct`).
 
 La géométrie publiée est la **sous-polyligne exacte** du stroke entre les
 deux abscisses (sommets OSM d'origine), et non la version rééchantillonnée.

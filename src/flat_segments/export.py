@@ -22,7 +22,7 @@ from typing import Any, Final
 
 import numpy as np
 
-from flat_segments.detect import Segment, SegmentKind
+from flat_segments.detect import STEEP_LENGTHS_M, Segment, SegmentKind
 from flat_segments.geometry import FloatArray, Projector, make_projector
 from flat_segments.loops import Loop
 from flat_segments.network import EventKind, RoadClass, Stroke, StrokeEvent, StrokePart
@@ -64,6 +64,7 @@ PUBLIC_FIELDS: Final = (
     "elev_loss_m",
     "grade_mean_pct",
     "grade_max_pct",
+    *(f"steep_{length}_pct" for length in STEEP_LENGTHS_M),
     "sinuosity",
     "n_crossings",
     "n_junctions",
@@ -89,6 +90,7 @@ ROUNDING: Final[Mapping[str, int]] = {
     "elev_loss_m": 1,
     "grade_mean_pct": 2,
     "grade_max_pct": 2,
+    **{f"steep_{length}_pct": 2 for length in STEEP_LENGTHS_M},
     "sinuosity": 2,
     "score": 1,
 }

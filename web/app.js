@@ -18,6 +18,7 @@ import {
   parseLatLon,
   parseUrlState,
   sortResults,
+  steepGrade,
 } from "./filters.js";
 import { geocodeUrl, parseGeocodeResults } from "./geocode.js";
 import {
@@ -175,6 +176,14 @@ function loopPopupHtml(p, distanceM) {
   </div>`;
 }
 
+/** Rows "Plus raide sur 100 m"… of a climb, for the lengths it covers. */
+function steepRows(p) {
+  if (p.kind !== "climb") return [];
+  return [100, 200, 400]
+    .filter((lengthM) => p[`steep_${lengthM}_pct`] != null)
+    .map((lengthM) => [`Plus raide sur ${formatLength(lengthM)}`, `${fmt(p[`steep_${lengthM}_pct`], 1)} %`]);
+}
+
 function popupHtml(properties, distanceM) {
   const p = properties;
   if (p.kind === "loop") return loopPopupHtml(p, distanceM);
@@ -182,6 +191,7 @@ function popupHtml(properties, distanceM) {
     ["Longueur", formatLength(p.length_m)],
     ["Pente moyenne", `${fmt(p.grade_mean_pct, 1)} %`],
     ["Pente locale max", `${fmt(p.grade_max_pct, 1)} %`],
+    ...steepRows(p),
     ["D+ / D-", `${fmt(p.elev_gain_m, 1)} / ${fmt(p.elev_loss_m, 1)} m`],
     ["Traversées de route", fmt(p.n_crossings)],
     ["Carrefours", fmt(p.n_junctions)],
@@ -557,7 +567,12 @@ function renderResults() {
       meta = [`piste, tour de ${formatLap(p)}`, `accès ${ACCESS_LABELS[p.access] ?? p.access}`];
       if (p.indoor) meta.push("couverte");
     } else {
-      const grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
+      let grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
+      // A long climb kept for its steep stretch: say where the grade asked for is.
+      const lengthM = state.criteria.minLengthM;
+      if (p.kind === "climb" && p.grade_mean_pct < state.criteria.minMeanGradePct) {
+        grade += ` (dont ${formatLength(lengthM)} à ${fmt(steepGrade(p, lengthM), 1)} %)`;
+      }
       meta = [
         formatLength(p.length_m),
         grade,

@@ -38,6 +38,7 @@ Fichiers : `data/processed/segments.parquet` (GeoParquet) et
 | `elev_loss_m` | `float` | m | Dénivelé négatif cumulé (D-), valeur positive |
 | `grade_mean_pct` | `float` | % | Pente moyenne `(elev_end − elev_start) / length`, signée |
 | `grade_max_pct` | `float` | % | Pente locale maximale en valeur absolue (base 20 m) |
+| `steep_{L}_pct` | `float` \| `null` | % | Côtes seulement, pour `L` = 100, 200, 400, 800, 1000 : pente moyenne du passage de `L` m le plus raide ; `null` pour un plat ou une côte plus courte que `L`. Le site filtre la pente minimale sur `steep_{L}_pct` pour la longueur minimale choisie |
 | `sinuosity` | `float` \| `null` | — | Longueur / distance à vol d'oiseau entre extrémités (≥ 1) ; `null` dans le GeoJSON pour une boucle fermée. Le site affiche « boucle » au-delà de 3 (extrémités proches) |
 | `n_crossings` | `int` | — | Intersections avec une route circulée (`MINOR`) à l'intérieur du segment |
 | `n_junctions` | `int` | — | Carrefours avec d'autres chemins à l'intérieur du segment |

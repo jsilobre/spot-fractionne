@@ -104,8 +104,18 @@ export function matches(properties, criteria) {
   if (criteria.pavedOnly && p.surface !== "paved") return false;
   if (p.kind === "flat") return p.grade_max_pct <= criteria.maxLocalGradePct;
   return (
-    p.grade_mean_pct >= criteria.minMeanGradePct && p.grade_mean_pct <= criteria.maxMeanGradePct
+    steepGrade(p, criteria.minLengthM) >= criteria.minMeanGradePct &&
+    p.grade_mean_pct <= criteria.maxMeanGradePct
   );
+}
+
+/**
+ * Steepest mean grade of a climb over a stretch of `lengthM` (the minimum
+ * length): a long climb whose steep end meets the minimum grade is kept.
+ * The mean grade of the whole climb when the tiles predate these fields.
+ */
+export function steepGrade(properties, lengthM) {
+  return properties[`steep_${lengthM}_pct`] ?? properties.grade_mean_pct;
 }
 
 /**
@@ -139,7 +149,8 @@ export function mapFilter(criteria, pinnedId = null, ids = null) {
     if (criteria.kind === "flat") {
       conditions.push(["<=", get("grade_max_pct"), criteria.maxLocalGradePct]);
     } else {
-      conditions.push([">=", get("grade_mean_pct"), criteria.minMeanGradePct]);
+      const steep = ["coalesce", get(`steep_${criteria.minLengthM}_pct`), get("grade_mean_pct")];
+      conditions.push([">=", steep, criteria.minMeanGradePct]);
       conditions.push(["<=", get("grade_mean_pct"), criteria.maxMeanGradePct]);
     }
   }
