@@ -434,7 +434,7 @@ Elle n'est pas encore écrite.
    une. Ni MNT, ni profils, ni détection.
 2. Une option du workflow Production applique cette commande aux départements
    d'un lancement précédent, puis assemble et publie comme `reuse_run`
-   (les artefacts de département sont gardés 7 jours). Compter l'assemblage,
+   (les artefacts de département sont gardés 90 jours). Compter l'assemblage,
    environ 1 h 15 au lieu de 8 h.
 
 Le résultat est presque celui d'un recalcul complet. Seuls les compteurs de
@@ -445,7 +445,7 @@ demande toujours un recalcul.
 
 Quand la correction ne touche que les **boucles du réseau** (`circuits.py`),
 l'option `circuits_run` du workflow Production repart des départements d'un
-lancement précédent (artefacts gardés 7 jours) et ne refait que leur étape
+lancement précédent (artefacts gardés 90 jours) et ne refait que leur étape
 `circuits` : pas de nouvel extrait OSM, et le MNT n'est téléchargé qu'autour
 des boucles candidates. Les segments, profils et pistes restent ceux du
 lancement repris.
@@ -454,12 +454,14 @@ Quand la correction ne touche que la **détection** (`detect.py`,
 `profile.py`, paramètres `detection`), l'option `detect_run` du workflow
 Production repart des départements d'un lancement précédent et ne refait que
 leur étape `segments` (`department --redo segments`), sur les strokes et les
-profils d'altitude de ce lancement (artefacts `profiles-CODE`, gardés 7 jours
+profils d'altitude de ce lancement (artefacts `profiles-CODE`, gardés 90 jours
 comme les autres). Ni extrait OSM, ni MNT : le MNT représente environ 85 % du
 calcul d'un département (26 min sur 30 pour l'Aisne, lancement 18). Sans
 requête à l'IGN, `max_parallel` peut monter à 20. Les boucles et les pistes
 restent celles du lancement repris. Si les paramètres `network` ou `profile`
 ont changé, le département est refusé : il faut alors un calcul complet. Un
 lancement `detect_run` republie aussi ses profils, pour en enchaîner un autre.
-Seuls les lancements faits depuis cette option ont ces artefacts.
+Seuls les lancements faits depuis cette option ont ces artefacts. Les voies
+restent celles de l'extrait OSM du lancement repris : passé quelques
+semaines, un calcul complet rafraîchit les données.
 

@@ -13,7 +13,7 @@ name: Production
 #    (a browser never mixes two versions) and the two latest are kept. A failed département blocks it: rerun the
 #    failed jobs, the others keep their results.
 # With reuse_run, only the assembly runs, on the départements of an earlier
-# run (its artifacts are kept 7 days): to republish after a fix in the export.
+# run (its artifacts are kept 90 days): to republish after a fix in the export.
 # With keep_run, only the listed départements are computed, and the assembly
 # takes the others from that earlier run: to redo a few départements.
 # With circuits_run, the listed départements start from that earlier run and
@@ -231,7 +231,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: segments-${{ matrix.code }}
-          retention-days: 7
+          retention-days: 90
           path: |
             ${{ env.WORK }}/departments/${{ matrix.code }}/segments.parquet
             ${{ env.WORK }}/departments/${{ matrix.code }}/loops.parquet
@@ -242,7 +242,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: profiles-${{ matrix.code }}
-          retention-days: 7
+          retention-days: 90
           path: |
             ${{ env.WORK }}/departments/${{ matrix.code }}/strokes.parquet
             ${{ env.WORK }}/departments/${{ matrix.code }}/profiles.parquet
