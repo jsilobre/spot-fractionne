@@ -136,7 +136,7 @@ projection Web Mercator) en deux couches.
 |---|---|
 | `schema_version`, `generated_at`, `sample`, `attribution`, `params` | comme le membre `metadata` du GeoJSON (ci-dessous) |
 | `bounds` | emprise `[ouest, sud, est, nord]` (WGS84) |
-| `counts` | nombre de plats (`flat`), de côtes (`climb`) et de boucles (`loop`) |
+| `counts` | nombre de plats (`flat`), de côtes (`climb`), de côtes longues (`long_climb`) et de boucles (`loop`) |
 | `tiles` | fichier, nom et zooms des couches, dossier et longueur de préfixe de l'index |
 
 **`ids/XX.json`** : `{"flat-3fa2b1c9d0e4": [lon, lat], …}`, la position (point
