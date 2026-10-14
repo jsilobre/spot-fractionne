@@ -226,7 +226,7 @@ Longueur de fenêtre : `W₀ = min([climb.target_lengths_m])` = 100 m.
 On traite les deux sens de parcours : `s = +1` (sens du stroke) et `s = −1`.
 Une fenêtre est valide pour le sens `s` si :
 
-- `[climb.min_mean_grade_pct]` = 3 % ≤ `s × pente moyenne` ≤ `[climb.max_mean_grade_pct]` = 15 %
+- `[climb.min_mean_grade_pct]` = 3 % ≤ `s × pente moyenne` ≤ `[climb.max_mean_grade_pct]` = 50 %
 - **pas de replat** : le plus long tronçon continu de la fenêtre où
   `s × g < [climb.min_local_grade_pct]` (1 %) mesure au plus
   `[climb.max_flat_stretch_m]` = 20 m
@@ -422,13 +422,13 @@ redirigés vers le segment qui les remplace, ou retirés
 | `flat.max_sinuosity` | 1,2 | Sinuosité max d'une fenêtre |
 | `climb.target_lengths_m` | 100, 200, 400, 800 m | Longueurs cibles (la plus courte = fenêtre de détection) |
 | `climb.min_mean_grade_pct` | 3 % | Pente moyenne min |
-| `climb.max_mean_grade_pct` | 15 % | Pente moyenne max |
+| `climb.max_mean_grade_pct` | 50 % | Pente moyenne max |
 | `climb.min_local_grade_pct` | 1 % | Seuil de « replat » |
 | `climb.max_flat_stretch_m` | 20 m | Longueur max d'un replat dans une fenêtre |
 | `climb.max_sinuosity` | 1,5 | Sinuosité max d'une fenêtre |
 | `long_climb.target_lengths_m` | 1000, 1500, 2000, 3000 m | Côtes longues : longueurs cibles (la plus courte = fenêtre de détection) |
 | `long_climb.min_mean_grade_pct` | 2,5 % | Côtes longues : pente moyenne min |
-| `long_climb.max_mean_grade_pct` | 15 % | Côtes longues : pente moyenne max |
+| `long_climb.max_mean_grade_pct` | 50 % | Côtes longues : pente moyenne max |
 | `long_climb.min_local_grade_pct` | 1 % | Côtes longues : seuil de « replat » |
 | `long_climb.max_flat_stretch_m` | 150 m | Côtes longues : longueur max d'un replat ou d'une descente |
 | `long_climb.max_sinuosity` | 3 | Côtes longues : sinuosité max d'une fenêtre |

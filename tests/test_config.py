@@ -68,7 +68,7 @@ def test_overrides_accept_shortcuts_and_full_paths() -> None:
         ("nope.x=1", "unknown parameter group"),
         ("flat=1", "unknown parameter"),
         ("flat.max_sinuosity=[", "invalid value"),
-        ("climb.min_mean_grade_pct=20", "min_mean_grade_pct <= max_mean_grade_pct"),
+        ("climb.min_mean_grade_pct=60", "min_mean_grade_pct <= max_mean_grade_pct"),
     ],
 )
 def test_invalid_overrides(override: str, message: str) -> None:

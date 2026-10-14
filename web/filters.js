@@ -10,7 +10,7 @@ export const DEFAULT_CRITERIA = Object.freeze({
   maxLocalGradePct: 2,
   maxLoopGradePct: 5,
   minMeanGradePct: 3,
-  maxMeanGradePct: 15,
+  maxMeanGradePct: 50,
   maxDistanceM: 5000,
   effortMin: 6,
   paceSecPerKm: 330,

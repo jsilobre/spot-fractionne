@@ -156,7 +156,7 @@ class ClimbParams:
 
     target_lengths_m: tuple[float, ...] = (100.0, 200.0, 400.0, 800.0)
     min_mean_grade_pct: float = 3.0
-    max_mean_grade_pct: float = 15.0
+    max_mean_grade_pct: float = 50.0
     min_local_grade_pct: float = 1.0
     max_flat_stretch_m: float = 20.0
     max_sinuosity: float = 1.5
