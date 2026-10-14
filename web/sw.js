@@ -5,7 +5,7 @@
 // - Page files: network first, so a deploy shows up at once; the cached copy
 //   is used offline.
 // - Pinned CDN libraries: cache first, their versioned URLs never change.
-// - Everything else (segments, tiles, basemaps, geocoder, analytics): not
+// - Everything else (segments, tiles, basemaps, geocoder, routes, analytics): not
 //   touched, always from the network.
 
 const CACHE = "spot-fractionne-v1";
@@ -21,6 +21,7 @@ const SHELL = [
   "filters.js",
   "geocode.js",
   "pwa.js",
+  "route.js",
   "tiles.js",
   "vendor/goatcounter-count.js",
   "manifest.webmanifest",
