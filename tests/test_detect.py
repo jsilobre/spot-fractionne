@@ -224,11 +224,32 @@ def test_descending_stroke_gives_the_same_climb_reversed() -> None:
     assert climb.elev_end_m > climb.elev_start_m
 
 
-@pytest.mark.parametrize("grade", [2.0, 20.0])
-def test_too_gentle_or_too_steep_is_not_a_climb(grade: float) -> None:
+def test_too_gentle_is_not_a_climb() -> None:
     stroke = straight_stroke(900)
-    z = raw_profile(stroke, piecewise((300, 0), (300, grade), (300, 0)))
+    z = raw_profile(stroke, piecewise((300, 0), (300, 2.0), (300, 0)))
     assert of_kind(run(stroke, z), dt.SegmentKind.CLIMB) == []
+
+
+def test_too_steep_is_not_a_climb() -> None:
+    params = replace(
+        PARAMS,
+        detection=replace(
+            PARAMS.detection, climb=replace(PARAMS.detection.climb, max_mean_grade_pct=15.0)
+        ),
+    )
+    stroke = straight_stroke(900)
+    z = raw_profile(stroke, piecewise((300, 0), (300, 20.0), (300, 0)))
+    profile = build_profile(stroke.coords, z, params.profile, stroke.structures())
+    assert (
+        of_kind(dt.detect_stroke(stroke, profile, params, "synthetic"), dt.SegmentKind.CLIMB) == []
+    )
+
+
+def test_steep_climb_up_to_the_maximum_grade_is_kept() -> None:
+    stroke = straight_stroke(900)
+    z = raw_profile(stroke, piecewise((300, 0), (300, 25), (300, 0)))
+    [climb] = of_kind(run(stroke, z), dt.SegmentKind.CLIMB)
+    assert climb.grade_mean_pct == pytest.approx(25, abs=2.5)
 
 
 def test_plateau_splits_a_climb_in_two() -> None:
