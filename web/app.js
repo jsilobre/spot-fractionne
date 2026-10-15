@@ -883,6 +883,15 @@ function setPlacing(placing) {
 }
 
 $("place").addEventListener("click", () => setPlacing(!state.placing));
+
+// "À propos" dialog; also opens from a link to #a-propos.
+const about = $("about");
+$("about-button").addEventListener("click", () => about.showModal());
+// A click on the backdrop (outside the dialog's box) closes it.
+about.addEventListener("click", (event) => {
+  if (event.target === about) about.close();
+});
+if (location.hash === "#a-propos") about.showModal();
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && state.placing) setPlacing(false);
 });
