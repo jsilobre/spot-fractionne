@@ -726,28 +726,43 @@ function selectSegment(id, lngLat = null, feature = null) {
   popup
     .getElement()
     .querySelector(".popup-details")
-    ?.addEventListener("toggle", (event) => writeStored(DETAILS_KEY, event.target.open ? "open" : "closed"));
+    ?.addEventListener("toggle", (event) => {
+      writeStored(DETAILS_KEY, event.target.open ? "open" : "closed");
+      // The sheet changed height: keep the segment and its route above it.
+      if (SHEET_QUERY.matches && state.selectedFeature) {
+        const features = state.route?.coordinates ? [routeFeature(state.route), state.selectedFeature] : [state.selectedFeature];
+        map.fitBounds(featuresBounds(features), { padding: popupPadding(), maxZoom: 16 });
+      }
+    });
   renderRouteBox();
   if (!lngLat) {
     map.fitBounds(featuresBounds([selected]), { padding: popupPadding(), maxZoom: 16 });
-  } else if (SHEET_QUERY.matches) {
-    // A segment tapped under the sheet: bring it above.
-    const limit = map.getContainer().clientHeight - popup.getElement().offsetHeight - 30;
-    const y = map.project(lngLat).y;
-    if (y > limit) map.panBy([0, y - limit]);
+  } else {
+    // A segment clicked under the card: bring it beside (or above) the card.
+    const card = popup.getElement();
+    const { x, y } = map.project(lngLat);
+    if (SHEET_QUERY.matches) {
+      const limit = map.getContainer().clientHeight - card.offsetHeight - 30;
+      if (y > limit) map.panBy([0, y - limit]);
+    } else {
+      const limit = card.offsetLeft + card.offsetWidth + 30;
+      if (x < limit && y < card.offsetTop + card.offsetHeight + 30) map.panBy([x - limit, 0]);
+    }
   }
   updateUrl();
 }
 
-/** Map padding that keeps what is fitted clear of the popup (above it, or above the sheet). */
+/** Map padding that keeps what is fitted clear of the card (beside it, or above the sheet). */
 function popupPadding() {
   const { clientWidth: w, clientHeight: h } = map.getContainer();
   const side = Math.min(60, w * 0.1);
   const edge = Math.min(60, h * 0.1);
-  const room = (popup.isOpen() ? popup.getElement().offsetHeight : 0) + 30;
-  return SHEET_QUERY.matches
-    ? { top: edge, bottom: Math.min(room, h * 0.6), left: side, right: side }
-    : { top: Math.min(Math.max(room, edge), h * 0.5), bottom: edge, left: side, right: side };
+  const card = popup.isOpen() ? popup.getElement() : null;
+  if (SHEET_QUERY.matches) {
+    return { top: edge, bottom: Math.min((card?.offsetHeight ?? 0) + 30, h * 0.6), left: side, right: side };
+  }
+  const left = card ? card.offsetLeft + card.offsetWidth + 30 : side;
+  return { top: edge, bottom: edge, left: Math.min(left, w * 0.5), right: side };
 }
 
 // --- route to the selected segment ---------------------------------------------
