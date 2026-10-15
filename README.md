@@ -2,7 +2,7 @@
 
 **Trouver, près de chez soi, les bouts de chemin parfaits pour une séance de course.**
 
-Le site : <https://jsilobre.github.io/spot-fractionne/> (toute la France
+Le site : <https://spot-fractionne.fr/> (toute la France
 métropolitaine ; il s'installe aussi comme une appli sur téléphone).
 
 **Spot Fractionné** (pipeline `flat-segments`) repère des tronçons courts exploitables pour l'entraînement
@@ -57,7 +57,8 @@ Déjà en place :
   fiche de validation terrain.
 - **Front statique** :
   - liens directs vers un segment ;
-  - déploiement GitHub Pages par workflow.
+  - déploiement par workflow sur Cloudflare, à l'adresse spot-fractionne.fr
+    ([ADR 0017](docs/adr/0017-hebergement-cloudflare.md)).
 - **Segments réels de la zone pilote**, publiés en phase 1 : 778 plats et 2266
   côtes, tirés de l'extrait OSM du 29/09/2026 et du MNT LiDAR HD de l'IGN (pas
   de 2 m), avec des seuils calibrés sur ces données
@@ -227,8 +228,11 @@ gh release download data-latest --dir web/data && tar -xzf web/data/ids.tar.gz -
 Liens directs : `?id=<segment>` ouvre un segment, `?lat=…&lon=…` fixe la
 position, `?kind=climb` affiche les côtes, `?kind=long_climb` les côtes
 longues et `?kind=loop` les boucles. Le workflow *Pages* publie `web/` à
-chaque modification sur `main`. Il faut d'abord activer GitHub Pages dans
-*Settings → Pages → Source : GitHub Actions*.
+chaque modification sur `main`, sur Cloudflare (variable
+`CLOUDFLARE_ACCOUNT_ID`, secret `CLOUDFLARE_API_TOKEN`) et sur GitHub Pages
+(*Settings → Pages → Source : GitHub Actions*). Quand la variable `SITE_URL`
+est définie, GitHub Pages ne sert plus qu'une redirection des anciens liens
+vers cette adresse ([ADR 0017](docs/adr/0017-hebergement-cloudflare.md)).
 
 Régénérer le jeu d'exemple (tippecanoe requis) : `uv run python scripts/make_sample_data.py`.
 

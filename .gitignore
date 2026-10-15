@@ -26,3 +26,7 @@ htmlcov/
 /web/data/segments.json
 /web/data/ids/
 /web/data/ids.tar.gz
+
+# Cloudflare deploy (wrangler)
+.wrangler/
+_site/

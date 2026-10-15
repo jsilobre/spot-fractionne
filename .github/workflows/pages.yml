@@ -1,7 +1,11 @@
 name: Pages
 
-# Publishes web/ to GitHub Pages. Requires Settings -> Pages -> Source:
-# "GitHub Actions" (the first run fails until Pages is enabled).
+# Publishes web/ (ADR 0017):
+# - on Cloudflare (Workers static assets, wrangler.jsonc) when the variable
+#   CLOUDFLARE_ACCOUNT_ID and the secret CLOUDFLARE_API_TOKEN are set;
+# - on GitHub Pages: the whole site, or, once the variable SITE_URL names the
+#   site's own address, a page that redirects old links there (keeping ?id=).
+# GitHub Pages requires Settings -> Pages -> Source: "GitHub Actions".
 on:
   push:
     branches: [main]
@@ -52,10 +56,44 @@ jobs:
             tar -xzf release/ids.tar.gz -C _site/data
           fi
           du -sh _site/data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+          retention-days: 7
+      - name: Redirect to the site's own address (old github.io links)
+        if: vars.SITE_URL != ''
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          mkdir -p _redirect
+          sed "s|__SITE_URL__|$SITE_URL|g" web/redirect/index.html > _redirect/index.html
+          cp _redirect/index.html _redirect/404.html
+          cp web/redirect/sw.js _redirect/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
+          path: ${{ vars.SITE_URL != '' && '_redirect' || '_site' }}
+
+  cloudflare:
+    needs: build
+    if: vars.CLOUDFLARE_ACCOUNT_ID != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
           path: _site
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Deploy on Cloudflare
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_SEND_METRICS: "false"
+        run: npx --yes wrangler@4.144.0 deploy
 
   deploy:
     needs: build
