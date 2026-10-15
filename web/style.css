@@ -492,6 +492,28 @@ input[type="range"] {
   font-size: 14px;
 }
 
+.popup-summary {
+  margin: 0;
+  font-size: 12px;
+  color: #5b6670;
+}
+
+.popup-details {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #d5dbe0;
+}
+
+.popup-details summary {
+  font-size: 12px;
+  color: #1f6fb2; /* the popup stays light in dark mode */
+  cursor: pointer;
+}
+
+.popup-details[open] summary {
+  margin-bottom: 4px;
+}
+
 .popup dl {
   display: grid;
   grid-template-columns: auto auto;
@@ -556,6 +578,36 @@ input[type="range"] {
 
   #map {
     min-height: 52vh;
+  }
+
+  /* The segment popup becomes a sheet along the bottom of the map, wherever
+     the segment is (overrides the position MapLibre sets on each move). */
+  .maplibregl-popup.segment-popup {
+    transform: none !important;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    flex-direction: column !important; /* whatever side MapLibre anchors it on */
+    max-width: none !important;
+    z-index: 3;
+  }
+
+  .segment-popup .maplibregl-popup-tip {
+    display: none;
+  }
+
+  .segment-popup .maplibregl-popup-content {
+    max-height: 40vh;
+    overflow-y: auto;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -2px 8px rgb(0 0 0 / 20%);
+  }
+
+  .segment-popup .maplibregl-popup-close-button {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
   }
 }
 
