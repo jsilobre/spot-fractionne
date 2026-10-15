@@ -22,6 +22,7 @@ const SHELL = [
   "geocode.js",
   "pwa.js",
   "route.js",
+  "profile.js",
   "tiles.js",
   "vendor/goatcounter-count.js",
   "manifest.webmanifest",

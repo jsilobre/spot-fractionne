@@ -33,11 +33,25 @@ import {
 } from "./tiles.js";
 import { BASEMAPS, basemapById } from "./basemaps.js";
 import { navigationUrl, parseRoute, routeUrl, segmentStart } from "./route.js";
+import {
+  buildProfile,
+  chartPoint,
+  distanceAtX,
+  elevationRequest,
+  GRADE_CLASSES,
+  gradeAt,
+  nearestSample,
+  orderedLine,
+  parseElevations,
+  profileSvg,
+  RESOURCES,
+} from "./profile.js";
 
 // Published tileset, or the fictitious sample when there is none.
 const DATA_DIRS = ["data/", "data/sample/"];
 const BASEMAP_KEY = "basemap"; // localStorage key of the chosen basemap
 const DETAILS_KEY = "segment-details"; // localStorage key: "open" if the popup details were left open
+const PROFILE_KEY = "segment-profile"; // localStorage key: "open" if the elevation profile was left open
 // Narrow screens (same width as style.css): the popup is a sheet along the bottom of the map.
 const SHEET_QUERY = matchMedia("(max-width: 720px)");
 const FALLBACK_STYLE = {
@@ -102,6 +116,9 @@ const state = {
   // {coordinates, distanceM, durationS}, "loading", or an error message.
   route: null,
   routeQuery: 0, // id of the latest route request (older answers are ignored)
+  // Elevation profiles by segment id: a profile (profile.js), "loading" or an error message.
+  profiles: new Map(),
+  profileScroll: false, // scroll the phone sheet to the profile once drawn
   pinnedId: null, // segment opened by a link: shown even if the filters exclude it
   placing: false, // the next click on the map sets the position
 };
@@ -175,10 +192,19 @@ function laps(p, distanceM) {
  */
 function popupFrame(p, distanceM, detailsHtml) {
   const flagged = p.quality_flags?.length ? " ⚠" : "";
+  // An athletics track is flat by construction: no profile.
+  const profile =
+    p.kind === "loop" && !isCircuit(p)
+      ? ""
+      : `<details class="popup-profile"${readStored(PROFILE_KEY) === "open" ? " open" : ""}>
+      <summary>Profil altimétrique</summary>
+      <div class="profile-box"></div>
+    </details>`;
   return `<div class="popup">
     <h3>${escapeHtml(titleOf(p))}</h3>
     <p class="popup-summary">${escapeHtml(summaryParts(p, distanceM).join(" · "))}</p>
     <div class="route-box"></div>
+    ${profile}
     <details class="popup-details"${readStored(DETAILS_KEY) === "open" ? " open" : ""}>
       <summary>Détails${flagged}</summary>
       ${detailsHtml}
@@ -594,6 +620,7 @@ function clearSelection() {
   state.selectedId = null; // before popup.remove(), which fires "close"
   state.selectedFeature = null;
   clearRoute();
+  setProfileCursor(null);
   if (id !== null && map.getSource("segments")) {
     map.setFeatureState({ source: "segments", sourceLayer: state.metadata.tiles.layer, id }, { selected: false });
   }
@@ -723,18 +750,23 @@ function selectSegment(id, lngLat = null, feature = null) {
     .setLngLat(anchor)
     .setHTML(popupHtml(selected.properties, result?.distanceM ?? null))
     .addTo(map);
-  popup
-    .getElement()
-    .querySelector(".popup-details")
-    ?.addEventListener("toggle", (event) => {
-      writeStored(DETAILS_KEY, event.target.open ? "open" : "closed");
-      // The sheet changed height: keep the segment and its route above it.
-      if (SHEET_QUERY.matches && state.selectedFeature) {
-        const features = state.route?.coordinates ? [routeFeature(state.route), state.selectedFeature] : [state.selectedFeature];
-        map.fitBounds(featuresBounds(features), { padding: popupPadding(), maxZoom: 16 });
-      }
-    });
+  const card = popup.getElement();
+  card.querySelector(".popup-details")?.addEventListener("toggle", (event) => {
+    writeStored(DETAILS_KEY, event.target.open ? "open" : "closed");
+    refitSheet();
+  });
+  card.querySelector(".popup-profile")?.addEventListener("toggle", (event) => {
+    writeStored(PROFILE_KEY, event.target.open ? "open" : "closed");
+    if (event.target.open) {
+      state.profileScroll = SHEET_QUERY.matches; // once drawn (the sheet is short)
+      loadProfile();
+    } else {
+      setProfileCursor(null);
+    }
+    refitSheet();
+  });
   renderRouteBox();
+  if (card.querySelector(".popup-profile")?.open) loadProfile();
   if (!lngLat) {
     map.fitBounds(featuresBounds([selected]), { padding: popupPadding(), maxZoom: 16 });
   } else {
@@ -750,6 +782,13 @@ function selectSegment(id, lngLat = null, feature = null) {
     }
   }
   updateUrl();
+}
+
+/** The sheet changed height: keep the segment and its route above it. */
+function refitSheet() {
+  if (!SHEET_QUERY.matches || !state.selectedFeature) return;
+  const features = state.route?.coordinates ? [routeFeature(state.route), state.selectedFeature] : [state.selectedFeature];
+  map.fitBounds(featuresBounds(features), { padding: popupPadding(), maxZoom: 16 });
 }
 
 /** Map padding that keeps what is fitted clear of the card (beside it, or above the sheet). */
@@ -837,6 +876,126 @@ async function computeRoute() {
     const bounds = featuresBounds([routeFeature(route), feature]);
     map.fitBounds(bounds, { padding: popupPadding(), maxZoom: 16 });
   }
+}
+
+// --- elevation profile of the selected segment ------------------------------------
+
+// Chart size (viewBox units, scaled to the card's width): flatter in the phone sheet.
+const chartSize = () => (SHEET_QUERY.matches ? { width: 360, height: 84 } : { width: 300, height: 110 });
+
+const GRADE_LEGEND = [
+  `&lt; ${GRADE_CLASSES[0]}`,
+  ...GRADE_CLASSES.slice(1).map((limit, i) => `${GRADE_CLASSES[i]}–${limit}`),
+  `&gt; ${GRADE_CLASSES.at(-1)} %`,
+];
+
+/** Fetch (once per segment) the elevation profile of the selected segment, then draw it. */
+async function loadProfile() {
+  const feature = state.selectedFeature;
+  if (!feature) return;
+  const id = feature.properties.id;
+  if (state.profiles.has(id)) return renderProfileBox();
+  state.profiles.set(id, "loading");
+  renderProfileBox();
+  const line = orderedLine(feature, state.position ?? searchCenter());
+  let result = "Profil indisponible (réseau). Refermez puis rouvrez pour réessayer.";
+  for (const resource of RESOURCES) {
+    try {
+      const { url, init } = elevationRequest(line, resource.id);
+      const response = await fetch(url, init);
+      const samples = response.ok ? parseElevations(await response.json()) : null;
+      if (samples) {
+        result = { ...buildProfile(samples), source: resource.label };
+        break;
+      }
+      result = "Pas d'altitude disponible ici.";
+    } catch (error) {
+      console.warn("Elevation profile unavailable", error);
+    }
+  }
+  if (typeof result === "string") state.profiles.delete(id); // retried at the next opening
+  else state.profiles.set(id, result);
+  if (state.selectedFeature?.properties.id !== id) return; // another segment meanwhile
+  renderProfileBox(result);
+}
+
+/** The profile part of the popup: chart, legend, readout under the pointer. */
+function renderProfileBox(override = null) {
+  const box = popup.getElement()?.querySelector(".profile-box");
+  if (!box || !state.selectedFeature) return;
+  const p = state.selectedFeature.properties;
+  const profile = override ?? state.profiles.get(p.id);
+  if (profile === "loading" || profile === undefined) {
+    box.innerHTML = `<p class="hint">Chargement du profil…</p>`;
+    return;
+  }
+  if (typeof profile === "string") {
+    box.innerHTML = `<p class="flags">${escapeHtml(profile)}</p>`;
+    return;
+  }
+  const bridge = p.on_structure || p.quality_flags?.includes("bridge_interpolated");
+  const metres = (z) => `${fmt(Math.round(z))} m`;
+  const size = chartSize();
+  box.innerHTML = `${profileSvg(profile, size)}
+    <p class="profile-readout">De ${metres(profile.z[0])} à ${metres(profile.z.at(-1))} d'altitude</p>
+    <p class="profile-legend">Pente :${GRADE_LEGEND.map((text, i) => ` <span class="swatch grade-${i}"></span>${text}`).join("")}</p>
+    <p class="hint">Altitudes ${escapeHtml(profile.source)}, lissées${bridge ? " ; sur un pont, la courbe suit le sol en dessous" : ""}.</p>`;
+  if (state.profileScroll) {
+    // Bring the chart into view in the phone sheet.
+    state.profileScroll = false;
+    const content = popup.getElement().querySelector(".maplibregl-popup-content");
+    const details = box.closest(".popup-profile");
+    if (content) content.scrollTop += details.getBoundingClientRect().top - content.getBoundingClientRect().top - 8;
+  }
+  const svg = box.querySelector("svg");
+  const readout = box.querySelector(".profile-readout");
+  const idle = readout.textContent;
+  const show = (event) => {
+    const rect = svg.getBoundingClientRect();
+    const vx = ((event.clientX - rect.left) / rect.width) * svg.viewBox.baseVal.width;
+    const i = nearestSample(profile, distanceAtX(profile, vx, size));
+    const [x, y] = chartPoint(profile, i, size);
+    const cursor = svg.querySelector(".profile-cursor");
+    cursor.setAttribute("x1", x);
+    cursor.setAttribute("x2", x);
+    cursor.setAttribute("visibility", "visible");
+    const dot = svg.querySelector(".profile-dot");
+    dot.setAttribute("cx", x);
+    dot.setAttribute("cy", y);
+    dot.setAttribute("visibility", "visible");
+    readout.textContent =
+      `${formatLength(profile.d[i])} : ${metres(profile.z[i])} d'altitude, ` + `pente ${fmt(gradeAt(profile, i), 1)} %`;
+    setProfileCursor(profile.points[i]);
+  };
+  const hide = () => {
+    svg.querySelector(".profile-cursor").setAttribute("visibility", "hidden");
+    svg.querySelector(".profile-dot").setAttribute("visibility", "hidden");
+    readout.textContent = idle;
+    setProfileCursor(null);
+  };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
+  svg.addEventListener("pointerleave", hide);
+}
+
+/** Point on the map matching the pointer on the profile chart (null hides it). */
+function setProfileCursor(point) {
+  if (!styleReady) return;
+  if (!map.getSource("profile-cursor")) {
+    if (!point) return;
+    map.addSource("profile-cursor", { type: "geojson", data: emptyCollection() });
+    map.addLayer({
+      id: "profile-cursor",
+      type: "circle",
+      source: "profile-cursor",
+      paint: { "circle-radius": 6, "circle-color": "#ffffff", "circle-stroke-color": "#222222", "circle-stroke-width": 2.5 },
+    });
+  }
+  map.getSource("profile-cursor").setData(
+    point
+      ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: point } }] }
+      : emptyCollection(),
+  );
 }
 
 /**

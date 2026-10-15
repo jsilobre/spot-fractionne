@@ -214,6 +214,12 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   d'une boucle), calculé à la demande par le service d'itinéraire de l'IGN
   et tracé sur la carte, et un lien vers l'appli GPS du téléphone (fonctions
   pures dans `route.js`).
+- **Profil altimétrique** ([ADR 0018](adr/0018-profil-altimetrique-ign.md)) :
+  section repliable de la fiche ; à l'ouverture, les altitudes le long du
+  segment sont demandées au service d'altimétrie de l'IGN (LiDAR HD, RGE ALTI
+  à défaut), lissées et dessinées en SVG avec la pente par tranche ; le
+  curseur sur le graphique place un point sur la carte (fonctions pures dans
+  `profile.js`).
 - **Données en tuiles vectorielles** ([ADR 0009](adr/0009-pmtiles-tippecanoe.md),
   [étape 2.2](phase-2/2.2-tuiles.md)) : le fichier PMTiles à l'adresse donnée
   par `data/segments.json` (sur Cloudflare R2, [ADR 0013](adr/0013-donnees-sur-r2.md)),
@@ -270,7 +276,7 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   de la page réseau d'abord (un déploiement se voit tout de suite, la copie en
   cache sert hors ligne) et les bibliothèques épinglées sur unpkg cache
   d'abord. Il ne touche ni aux données (`data/`, R2), ni aux fonds de carte,
-  ni au géocodeur, ni au service d'itinéraire : hors ligne, la page s'ouvre mais sans segments. Les
+  ni au géocodeur, ni aux services d'itinéraire et d'altimétrie : hors ligne, la page s'ouvre mais sans segments. Les
   listes `SHELL` et `CDN` de `sw.js` sont vérifiées par les tests contre
   `index.html` et la liste de copie de `pages.yml`.
 - **Publication** : le workflow `.github/workflows/pages.yml` déploie `web/`

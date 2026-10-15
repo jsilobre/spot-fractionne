@@ -24,6 +24,7 @@ ADR NNNN ». Les corrections mineures (précision, lien) se font sur place.
 | [0015](0015-boucles-du-reseau.md) | Boucles du réseau : tours de parcs, de lacs et de quartiers | Acceptée |
 | [0016](0016-itineraire-ign.md) | Itinéraire à pied jusqu'au départ d'un segment, avec le service de l'IGN | Acceptée |
 | [0017](0017-hebergement-cloudflare.md) | Site hébergé sur Cloudflare, à l'adresse spot-fractionne.fr | Proposée |
+| [0018](0018-profil-altimetrique-ign.md) | Profil altimétrique d'un segment, demandé au service d'altimétrie de l'IGN | Proposée |
 
 ## Gabarit
 
