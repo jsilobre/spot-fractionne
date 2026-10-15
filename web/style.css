@@ -448,6 +448,20 @@ input[type="range"] {
   gap: 6px;
 }
 
+/* Results of a search circle out of view: still usable, but faded. */
+.result-list.away {
+  opacity: 0.6;
+}
+
+#results-away {
+  margin: 0 0 8px;
+}
+
+#results-away .away-search {
+  display: block;
+  margin-top: 6px;
+}
+
 .result-list button {
   width: 100%;
   text-align: left;

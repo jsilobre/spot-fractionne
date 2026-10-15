@@ -15,9 +15,15 @@ export const DEFAULT_CRITERIA = Object.freeze({
   effortMin: 6,
   paceSecPerKm: 330,
   noCrossing: false,
-  pavedOnly: false,
+  surface: "any", // "any", "paved" or "unpaved" (see SURFACE_GROUPS)
   publicOnly: false,
   loopTypes: Object.freeze(["track", "water", "park", "neighbourhood"]),
+});
+
+/** Segment surfaces selected by the surface filter (cobbles and unknown: "any" only). */
+export const SURFACE_GROUPS = Object.freeze({
+  paved: Object.freeze(["paved"]),
+  unpaved: Object.freeze(["compacted", "gravel", "unpaved"]),
 });
 
 /**
@@ -111,7 +117,8 @@ export function matches(properties, criteria) {
   }
   if (p.length_m < criteria.minLengthM) return false;
   if (criteria.noCrossing && p.n_crossings > 0) return false;
-  if (criteria.pavedOnly && p.surface !== "paved") return false;
+  const surfaces = SURFACE_GROUPS[criteria.surface];
+  if (surfaces && !surfaces.includes(p.surface)) return false;
   if (p.kind === "flat") return p.grade_max_pct <= criteria.maxLocalGradePct;
   return (
     steepGrade(p, criteria.minLengthM) >= criteria.minMeanGradePct &&
@@ -155,7 +162,8 @@ export function mapFilter(criteria, pinnedId = null, ids = null) {
   } else {
     conditions.push([">=", get("length_m"), criteria.minLengthM]);
     if (criteria.noCrossing) conditions.push(["==", get("n_crossings"), 0]);
-    if (criteria.pavedOnly) conditions.push(["==", get("surface"), "paved"]);
+    const surfaces = SURFACE_GROUPS[criteria.surface];
+    if (surfaces) conditions.push(["match", get("surface"), [...surfaces], true, false]);
     if (criteria.kind === "flat") {
       conditions.push(["<=", get("grade_max_pct"), criteria.maxLocalGradePct]);
     } else {

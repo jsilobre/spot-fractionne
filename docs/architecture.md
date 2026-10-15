@@ -192,8 +192,9 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
     (`effortLengthM`), plage de pente ;
   - Boucles : type (piste, parc, lac, quartier), pente locale max des
     boucles du réseau, accès libre ;
-  - pour tous les segments : sans traversée, revêtement asphalte / béton, et
-    la distance de recherche.
+  - pour tous les segments : sans traversée, revêtement (tous, asphalte /
+    béton, ou non revêtu : stabilisé, gravier, terre), et la distance de
+    recherche.
 - **Position** :
   - géolocalisation de l'appareil ;
   - point placé sur la carte : bouton « Placer sur la carte », puis un clic.
@@ -430,6 +431,7 @@ recalés à l'échelle régionale.
 | Routes ≥ `tertiary` avec trottoir non cartographié séparément | Tronçon ignoré, alors qu'il serait praticable | Limite assumée au prototype |
 | Voies de service dans les parkings | Une voie `highway=service` sans `service=parking_aisle` qui traverse un parking donne un segment non praticable, et le cheminement piéton qui la longe passe pour un doublon (validation terrain, campagne 1) | Limite connue. Piste : exclure les voies `service` situées dans une zone `amenity=parking` |
 | Routes de service des aéroports | Des voies `highway=service` sans tag d'accès, le long des pistes, donnent des segments inaccessibles (Toulouse-Blagnac, octobre 2026) | Voies `MINOR` et `PATH` à plus de 50 % dans une zone `aeroway=aerodrome` exclues, sauf `foot=yes` (§ 1 de l'algorithme) |
+| Boucles dans les cimetières | Des tours d'allées de cimetière proposés comme boucles (retour Reddit, octobre 2026) | Voies `MINOR` et `PATH` à plus de 50 % dans un cimetière (`landuse=cemetery`, `amenity=grave_yard`) exclues, même `foot=yes` (§ 1 de l'algorithme) |
 | Données figées | Chantier récent, nouvelle voie verte… | Date de l'extrait OSM et du MNT dans les métadonnées de l'export |
 
 ## 8. Exploitation : corriger sans tout recalculer
