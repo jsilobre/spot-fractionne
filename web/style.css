@@ -564,6 +564,27 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+/* The segment popup is a card docked in the top left corner of the map,
+   wherever the segment is (overrides the position MapLibre sets on each
+   move), so that it never hides the segment or its route. */
+.maplibregl-popup.segment-popup {
+  transform: none !important;
+  top: 10px;
+  left: 10px;
+  flex-direction: column !important; /* whatever side MapLibre anchors it on */
+  z-index: 3;
+}
+
+.segment-popup .maplibregl-popup-tip {
+  display: none;
+}
+
+.segment-popup .maplibregl-popup-content {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 25%);
+}
+
 @media (max-width: 720px) {
   body {
     flex-direction: column-reverse;
@@ -580,26 +601,17 @@ input[type="range"] {
     min-height: 52vh;
   }
 
-  /* The segment popup becomes a sheet along the bottom of the map, wherever
-     the segment is (overrides the position MapLibre sets on each move). */
+  /* On phones the card becomes a sheet along the bottom of the map. */
   .maplibregl-popup.segment-popup {
-    transform: none !important;
     top: auto;
     right: 0;
     bottom: 0;
     left: 0;
-    flex-direction: column !important; /* whatever side MapLibre anchors it on */
     max-width: none !important;
-    z-index: 3;
-  }
-
-  .segment-popup .maplibregl-popup-tip {
-    display: none;
   }
 
   .segment-popup .maplibregl-popup-content {
     max-height: 40vh;
-    overflow-y: auto;
     border-radius: 12px 12px 0 0;
     box-shadow: 0 -2px 8px rgb(0 0 0 / 20%);
   }
