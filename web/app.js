@@ -625,7 +625,18 @@ function clearSelection() {
     map.setFeatureState({ source: "segments", sourceLayer: state.metadata.tiles.layer, id }, { selected: false });
   }
   popup.remove();
+  setSegmentOpen(false);
   updateUrl();
+}
+
+/**
+ * On phones, a selected segment shrinks the panel below the map (results
+ * list) so that more map shows around the segment and its route.
+ */
+function setSegmentOpen(open) {
+  const changed = document.body.classList.contains("segment-open") !== open;
+  document.body.classList.toggle("segment-open", open);
+  if (changed && SHEET_QUERY.matches) map.resize();
 }
 
 /** The linked segment follows the filters again. */
@@ -706,6 +717,7 @@ function renderResults() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = p.kind;
+    button.dataset.id = p.id;
     const meta = summaryParts(p, distanceM);
     button.innerHTML = `<span class="result-title">${escapeHtml(titleOf(p))}</span>
       <span class="result-meta">${escapeHtml(meta.join(" · "))}</span>`;
@@ -743,6 +755,9 @@ function selectSegment(id, lngLat = null, feature = null) {
   // whole one of the result list.
   state.selectedFeature = result?.feature ?? selected;
   map.setFeatureState({ source: "segments", sourceLayer: state.metadata.tiles.layer, id }, { selected: true });
+  setSegmentOpen(true);
+  // The shrunk list keeps the selected segment in view.
+  document.querySelector(`#results button[data-id="${CSS.escape(String(id))}"]`)?.scrollIntoView({ block: "nearest" });
   const lines = lineParts(selected.geometry);
   const longest = lines.reduce((a, b) => (b.length > a.length ? b : a));
   const anchor = lngLat ?? longest[Math.floor(longest.length / 2)];
