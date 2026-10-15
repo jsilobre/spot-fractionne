@@ -103,6 +103,8 @@ Ajouts depuis la mise en ligne nationale :
 - **Itinéraire à pied** depuis la position jusqu'au départ du segment choisi,
   tracé sur la carte, et lien pour y aller avec une appli GPS
   ([ADR 0016](docs/adr/0016-itineraire-ign.md)).
+- **Profil altimétrique** du segment, sur demande, coloré par pente
+  ([ADR 0018](docs/adr/0018-profil-altimetrique-ign.md)).
 
 Zone pilote : **Labège / Caraman** (sud-est de Toulouse, Haute-Garonne),
 emprise `1.48,43.48,1.80,43.59` (lon/lat WGS84).
@@ -246,7 +248,7 @@ Tout nouveau fichier du site doit être ajouté à la liste de copie de
 `.github/workflows/pages.yml` et, s'il est chargé par la page, à la liste
 `SHELL` de `sw.js` ; des tests le vérifient.
 
-Tests du front (filtrage, décodage des tuiles, géocodage, itinéraire, fonds de carte,
+Tests du front (filtrage, décodage des tuiles, géocodage, itinéraire, profil, fonds de carte,
 PWA, déploiement) : `cd web && node --test`.
 
 ## Organisation du dépôt
@@ -287,5 +289,7 @@ data/                 données téléchargées et produites (non versionné)
   (Base Adresse Nationale, [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)).
 - **Itinéraire à pied** : service d'itinéraire de la Géoplateforme IGN
   (BD TOPO, [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)).
+- **Profil altimétrique** : service d'altimétrie de la Géoplateforme IGN
+  (MNT LiDAR HD, RGE ALTI, [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)).
 
-Ces mentions, sauf les deux dernières, sont aussi affichées sur la carte du site.
+Ces mentions, sauf les trois dernières, sont aussi affichées sur la carte du site.

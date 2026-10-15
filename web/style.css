@@ -569,6 +569,115 @@ input[type="range"] {
   font-size: 12px;
 }
 
+/* Elevation profile (fixed light colors: the popup stays light in dark mode). */
+.popup-profile {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #d5dbe0;
+}
+
+.popup-profile summary {
+  font-size: 12px;
+  color: #1f6fb2;
+  cursor: pointer;
+}
+
+.popup-profile p {
+  margin: 2px 0 0;
+}
+
+.profile-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 4px;
+  touch-action: none; /* dragging along the chart moves the cursor, not the page */
+  user-select: none;
+}
+
+.profile-chart text {
+  font-size: 10px;
+  fill: #5b6670;
+}
+
+.profile-bands path {
+  stroke-width: 0.6;
+}
+
+.profile-line {
+  fill: none;
+  stroke: #1d2329;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.profile-axis {
+  stroke: #9aa6b0;
+  stroke-width: 1;
+}
+
+.profile-cursor {
+  stroke: #1d2329;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.profile-dot {
+  fill: #ffffff;
+  stroke: #1d2329;
+  stroke-width: 1.5;
+}
+
+.profile-readout {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-legend {
+  font-size: 11px;
+  color: #5b6670;
+}
+
+.profile-legend .swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+/* Grade classes (profile.js GRADE_CLASSES: < 2, 2-5, 5-8, 8-12, > 12 %). */
+.grade-0 {
+  fill: #9fd4a6;
+  stroke: #9fd4a6; /* hides the seams between bands */
+  background: #9fd4a6;
+}
+
+.grade-1 {
+  fill: #f2d55c;
+  stroke: #f2d55c; /* hides the seams between bands */
+  background: #f2d55c;
+}
+
+.grade-2 {
+  fill: #f29a3f;
+  stroke: #f29a3f; /* hides the seams between bands */
+  background: #f29a3f;
+}
+
+.grade-3 {
+  fill: #dd4b32;
+  stroke: #dd4b32; /* hides the seams between bands */
+  background: #dd4b32;
+}
+
+.grade-4 {
+  fill: #8e1b2e;
+  stroke: #8e1b2e; /* hides the seams between bands */
+  background: #8e1b2e;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
