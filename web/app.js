@@ -37,6 +37,9 @@ import { navigationUrl, parseRoute, routeUrl, segmentStart } from "./route.js";
 // Published tileset, or the fictitious sample when there is none.
 const DATA_DIRS = ["data/", "data/sample/"];
 const BASEMAP_KEY = "basemap"; // localStorage key of the chosen basemap
+const DETAILS_KEY = "segment-details"; // localStorage key: "open" if the popup details were left open
+// Narrow screens (same width as style.css): the popup is a sheet along the bottom of the map.
+const SHEET_QUERY = matchMedia("(max-width: 720px)");
 const FALLBACK_STYLE = {
   version: 8,
   sources: {},
@@ -164,6 +167,23 @@ function laps(p, distanceM) {
   return `${fmt(n, 1)} tour${n >= 2 ? "s" : ""}`;
 }
 
+/**
+ * The popup: title, one-line summary and route always shown, the rest folded
+ * under "Détails" (left open or closed from one segment to the next).
+ */
+function popupFrame(p, distanceM, detailsHtml) {
+  const flagged = p.quality_flags?.length ? " ⚠" : "";
+  return `<div class="popup">
+    <h3>${escapeHtml(titleOf(p))}</h3>
+    <p class="popup-summary">${escapeHtml(summaryParts(p, distanceM).join(" · "))}</p>
+    <div class="route-box"></div>
+    <details class="popup-details"${readStored(DETAILS_KEY) === "open" ? " open" : ""}>
+      <summary>Détails${flagged}</summary>
+      ${detailsHtml}
+    </details>
+  </div>`;
+}
+
 function loopPopupHtml(p, distanceM) {
   const circuit = isCircuit(p);
   const rows = circuit
@@ -189,14 +209,13 @@ function loopPopupHtml(p, distanceM) {
       ? `<p class="hint">Objet OSM : <a href="https://www.openstreetmap.org/${escapeHtml(type)}/${escapeHtml(osmId)}" target="_blank" rel="noopener">${escapeHtml(osmId)}</a></p>`
       : "";
   const link = buildUrlSearch({ id: p.id, kind: "loop" }) || "?";
-  return `<div class="popup">
-    <h3>${escapeHtml(titleOf(p))}</h3>
-    ${p.indoor ? `<p class="hint">Piste couverte</p>` : ""}
-    <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
+  return popupFrame(
+    p,
+    distanceM,
+    `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
     ${osmLink}
-    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette ${circuit ? "boucle" : "piste"}</a></p>
-    <div class="route-box"></div>
-  </div>`;
+    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette ${circuit ? "boucle" : "piste"}</a></p>`,
+  );
 }
 
 /** Rows "Plus raide sur 100 m"… of a climb, for the lengths it covers. */
@@ -231,14 +250,14 @@ function popupHtml(properties, distanceM) {
     .map((id) => `<a href="https://www.openstreetmap.org/way/${id}" target="_blank" rel="noopener">${id}</a>`)
     .join(", ");
   const link = buildUrlSearch({ id: p.id }) || "?";
-  return `<div class="popup">
-    <h3>${escapeHtml(titleOf(p))}</h3>
-    <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
+  return popupFrame(
+    p,
+    distanceM,
+    `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
     ${flags.length ? `<p class="flags">⚠ ${escapeHtml(flags.join(" ; "))}</p>` : ""}
     ${p.elevation_source !== "synthetic" && osmLinks ? `<p class="hint">Voies OSM : ${osmLinks}</p>` : ""}
-    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers ce segment</a></p>
-    <div class="route-box"></div>
-  </div>`;
+    <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers ce segment</a></p>`,
+  );
 }
 
 // --- map ----------------------------------------------------------------------
@@ -246,7 +265,7 @@ function popupHtml(properties, distanceM) {
 const protocol = new Protocol();
 maplibregl.addProtocol("pmtiles", protocol.tile);
 
-let basemap = basemapById(readStoredBasemap());
+let basemap = basemapById(readStored(BASEMAP_KEY));
 const map = new maplibregl.Map({
   container: "map",
   style: basemap.style,
@@ -271,11 +290,19 @@ map.on("error", (event) => {
   }
 });
 
-function readStoredBasemap() {
+function readStored(key) {
   try {
-    return localStorage.getItem(BASEMAP_KEY);
+    return localStorage.getItem(key);
   } catch {
-    return null; // storage blocked: default basemap
+    return null; // storage blocked: default choice
+  }
+}
+
+function writeStored(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // storage blocked: the choice lasts for this visit only
   }
 }
 
@@ -289,11 +316,7 @@ function basemapControl() {
   for (const { id, label } of BASEMAPS) select.append(new Option(label, id, false, id === basemap.id));
   select.addEventListener("change", () => {
     basemap = basemapById(select.value);
-    try {
-      localStorage.setItem(BASEMAP_KEY, basemap.id);
-    } catch {
-      // storage blocked: the choice lasts for this visit only
-    }
+    writeStored(BASEMAP_KEY, basemap.id);
     // A failing basemap falls back to the plain background again.
     styleReady = false;
     usingFallback = false;
@@ -304,7 +327,7 @@ function basemapControl() {
   return container;
 }
 
-const popup = new maplibregl.Popup({ maxWidth: "300px" });
+const popup = new maplibregl.Popup({ maxWidth: "300px", className: "segment-popup" });
 // The position: a marker (DOM element) that can be dragged to another place.
 const marker = new maplibregl.Marker({
   element: Object.assign(document.createElement("div"), { className: "position-marker" }),
@@ -595,6 +618,33 @@ function render() {
   renderResults();
 }
 
+/** One-line summary of a segment: distance, length, grade, score... */
+function summaryParts(p, distanceM) {
+  let meta;
+  if (isCircuit(p)) {
+    meta = [loopLabel(p).toLowerCase(), formatLap(p), crossings(p.n_crossings)];
+  } else if (p.kind === "loop") {
+    meta = [`piste, tour de ${formatLap(p)}`, `accès ${ACCESS_LABELS[p.access] ?? p.access}`];
+    if (p.indoor) meta.push("couverte");
+  } else {
+    let grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
+    // A long climb kept for its steep stretch: say where the grade asked for is.
+    const lengthM = state.criteria.minLengthM;
+    if (p.kind === "climb" && p.grade_mean_pct < state.criteria.minMeanGradePct) {
+      grade += ` (dont ${formatLength(lengthM)} à ${fmt(steepGrade(p, lengthM), 1)} %)`;
+    }
+    if (p.kind === "long_climb") grade += ` · ${formatDuration(p.length_m, state.criteria.paceSecPerKm)}`;
+    meta = [
+      formatLength(p.length_m),
+      grade,
+      crossings(p.n_crossings),
+      `score ${fmt(p.score)}`,
+    ];
+  }
+  if (distanceM !== null && distanceM !== undefined) meta.unshift(`à ${formatLength(distanceM)}`);
+  return meta;
+}
+
 function renderResults() {
   const list = $("results");
   list.replaceChildren();
@@ -605,28 +655,7 @@ function renderResults() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = p.kind;
-    let meta;
-    if (isCircuit(p)) {
-      meta = [loopLabel(p).toLowerCase(), formatLap(p), crossings(p.n_crossings)];
-    } else if (p.kind === "loop") {
-      meta = [`piste, tour de ${formatLap(p)}`, `accès ${ACCESS_LABELS[p.access] ?? p.access}`];
-      if (p.indoor) meta.push("couverte");
-    } else {
-      let grade = p.kind === "flat" ? `max ${fmt(p.grade_max_pct, 1)} %` : `${fmt(p.grade_mean_pct, 1)} %`;
-      // A long climb kept for its steep stretch: say where the grade asked for is.
-      const lengthM = state.criteria.minLengthM;
-      if (p.kind === "climb" && p.grade_mean_pct < state.criteria.minMeanGradePct) {
-        grade += ` (dont ${formatLength(lengthM)} à ${fmt(steepGrade(p, lengthM), 1)} %)`;
-      }
-      if (p.kind === "long_climb") grade += ` · ${formatDuration(p.length_m, state.criteria.paceSecPerKm)}`;
-      meta = [
-        formatLength(p.length_m),
-        grade,
-        crossings(p.n_crossings),
-        `score ${fmt(p.score)}`,
-      ];
-    }
-    if (distanceM !== null) meta.unshift(`à ${formatLength(distanceM)}`);
+    const meta = summaryParts(p, distanceM);
     button.innerHTML = `<span class="result-title">${escapeHtml(titleOf(p))}</span>
       <span class="result-meta">${escapeHtml(meta.join(" · "))}</span>`;
     button.addEventListener("click", () => selectSegment(p.id));
@@ -666,13 +695,35 @@ function selectSegment(id, lngLat = null, feature = null) {
   const lines = lineParts(selected.geometry);
   const longest = lines.reduce((a, b) => (b.length > a.length ? b : a));
   const anchor = lngLat ?? longest[Math.floor(longest.length / 2)];
-  if (!lngLat) map.fitBounds(featuresBounds([selected]), { padding: 80, maxZoom: 16 });
   popup
     .setLngLat(anchor)
     .setHTML(popupHtml(selected.properties, result?.distanceM ?? null))
     .addTo(map);
+  popup
+    .getElement()
+    .querySelector(".popup-details")
+    ?.addEventListener("toggle", (event) => writeStored(DETAILS_KEY, event.target.open ? "open" : "closed"));
   renderRouteBox();
+  if (!lngLat) {
+    map.fitBounds(featuresBounds([selected]), { padding: popupPadding(), maxZoom: 16 });
+  } else if (SHEET_QUERY.matches) {
+    // A segment tapped under the sheet: bring it above.
+    const limit = map.getContainer().clientHeight - popup.getElement().offsetHeight - 30;
+    const y = map.project(lngLat).y;
+    if (y > limit) map.panBy([0, y - limit]);
+  }
   updateUrl();
+}
+
+/** Map padding that keeps what is fitted clear of the popup (above it, or above the sheet). */
+function popupPadding() {
+  const { clientWidth: w, clientHeight: h } = map.getContainer();
+  const side = Math.min(60, w * 0.1);
+  const edge = Math.min(60, h * 0.1);
+  const room = (popup.isOpen() ? popup.getElement().offsetHeight : 0) + 30;
+  return SHEET_QUERY.matches
+    ? { top: edge, bottom: Math.min(room, h * 0.6), left: side, right: side }
+    : { top: Math.min(Math.max(room, edge), h * 0.5), bottom: edge, left: side, right: side };
 }
 
 // --- route to the selected segment ---------------------------------------------
@@ -745,11 +796,7 @@ async function computeRoute() {
   renderRouteBox();
   if (route) {
     const bounds = featuresBounds([routeFeature(route), feature]);
-    // Room for the popup above the route, within small (phone) maps too.
-    const { clientWidth: w, clientHeight: h } = map.getContainer();
-    const side = Math.min(60, w * 0.1);
-    const padding = { top: Math.min(220, h * 0.4), bottom: Math.min(60, h * 0.1), left: side, right: side };
-    map.fitBounds(bounds, { padding, maxZoom: 16 });
+    map.fitBounds(bounds, { padding: popupPadding(), maxZoom: 16 });
   }
 }
 
@@ -1059,6 +1106,12 @@ function addAttribution(dataAttribution) {
   // Set drops the duplicate.
   const custom = [...new Set(["© les contributeurs d'OpenStreetMap (ODbL)", ...dataAttribution])];
   map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: custom }));
+  // On phones the credits start folded (ⓘ shows them): unfolded, they hide the segment sheet.
+  if (SHEET_QUERY.matches) {
+    const attribution = map.getContainer().querySelector(".maplibregl-ctrl-attrib");
+    attribution?.classList.remove("maplibregl-compact-show");
+    attribution?.removeAttribute("open");
+  }
 }
 
 const initial = parseUrlState(location.search);
