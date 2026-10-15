@@ -114,6 +114,8 @@ const fmt = (value, digits = 0) =>
     : Number(value).toLocaleString("fr-FR", { maximumFractionDigits: digits });
 
 const formatLength = (m) => (m >= 1000 ? `${fmt(m / 1000, 2)} km` : `${fmt(m)} m`);
+/** A distance between places: whole kilometres from 10 km. */
+const formatDistance = (m) => (m >= 10_000 ? `${fmt(Math.round(m / 1000))} km` : formatLength(m));
 
 const kindLabel = (kind) =>
   ({ flat: "Plat", climb: "Côte", long_climb: "Côte longue", loop: "Piste" })[kind] ?? kind;
@@ -467,11 +469,33 @@ const searchHere = Object.assign(document.createElement("button"), {
 searchHere.addEventListener("click", () => setPosition(mapCenter(), "centre de la carte"));
 map.getContainer().append(searchHere);
 
-/** Show "search here" when the map center is away from the search circle. */
+$("results-away-search").addEventListener("click", () => setPosition(mapCenter(), "centre de la carte"));
+
+/**
+ * Show "search here" when the map center is away from the search circle, and
+ * warn above the list when the circle is out of view: its results are
+ * elsewhere, and clicking one would take the map there.
+ */
 function updateSearchHere() {
   const area = state.searchArea;
-  searchHere.hidden =
-    !area || haversineMeters(mapCenter(), area.center) < area.radiusM * SEARCH_HERE_FRACTION;
+  const awayM = area ? haversineMeters(mapCenter(), area.center) : 0;
+  searchHere.hidden = !area || awayM < area.radiusM * SEARCH_HERE_FRACTION;
+  const away = Boolean(area) && !circleInView(area);
+  $("results-away").hidden = !away;
+  $("results").classList.toggle("away", away);
+  if (away) {
+    $("results-away-text").textContent =
+      `Ces résultats sont autour du point de recherche, à ${formatDistance(awayM)} de la zone affichée.`;
+  }
+}
+
+/** Whether a search circle shows at least partly in the map view. */
+function circleInView({ center, radiusM }) {
+  const bounds = map.getBounds();
+  const [lon, lat] = center;
+  const clampedLon = Math.min(Math.max(lon, bounds.getWest()), bounds.getEast());
+  const clampedLat = Math.min(Math.max(lat, bounds.getSouth()), bounds.getNorth());
+  return haversineMeters(center, [clampedLon, clampedLat]) <= radiusM;
 }
 
 function emptyCollection() {
@@ -872,7 +896,7 @@ function readControls() {
   c.maxMeanGradePct = hi;
   c.maxDistanceM = Number($("max-distance").value) * 1000;
   c.noCrossing = $("no-crossing").checked;
-  c.pavedOnly = $("paved-only").checked;
+  c.surface = $("surface").value;
   c.publicOnly = $("public-only").checked;
   c.loopTypes = [...document.querySelectorAll('input[name="loop-type"]:checked')].map((e) => e.value);
   state.sortBy = $("sort-by").value;

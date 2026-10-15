@@ -182,6 +182,54 @@ def test_read_ways_drops_the_service_roads_of_an_aerodrome(tmp_path: Path) -> No
     assert [a.osm_id for a in osm.iter_aerodromes(path)] == ["way/20"]
 
 
+CEMETERY_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="test">
+  <node id="1" lat="43.6200" lon="1.3500" version="1"/>
+  <node id="2" lat="43.6200" lon="1.3700" version="1"/>
+  <node id="3" lat="43.6400" lon="1.3700" version="1"/>
+  <node id="4" lat="43.6400" lon="1.3500" version="1"/>
+  <node id="5" lat="43.6300" lon="1.3550" version="1"/>
+  <node id="6" lat="43.6300" lon="1.3650" version="1"/>
+  <node id="7" lat="43.6350" lon="1.3550" version="1"/>
+  <node id="8" lat="43.6350" lon="1.3650" version="1"/>
+  <node id="9" lat="43.6450" lon="1.3500" version="1"/>
+  <node id="10" lat="43.6450" lon="1.3700" version="1"/>
+  <node id="11" lat="43.6500" lon="1.3500" version="1"/>
+  <node id="12" lat="43.6500" lon="1.3700" version="1"/>
+  <node id="13" lat="43.6600" lon="1.3700" version="1"/>
+  <node id="14" lat="43.6600" lon="1.3500" version="1"/>
+  <way id="20" version="1">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="landuse" v="cemetery"/>
+  </way>
+  <way id="21" version="1">
+    <nd ref="5"/><nd ref="6"/>
+    <tag k="highway" v="footway"/>
+  </way>
+  <way id="22" version="1">
+    <nd ref="7"/><nd ref="8"/>
+    <tag k="highway" v="footway"/><tag k="foot" v="designated"/>
+  </way>
+  <way id="23" version="1">
+    <nd ref="9"/><nd ref="10"/>
+    <tag k="highway" v="cycleway"/>
+  </way>
+  <way id="24" version="1">
+    <nd ref="11"/><nd ref="12"/><nd ref="13"/><nd ref="14"/><nd ref="11"/>
+    <tag k="landuse" v="grass"/>
+  </way>
+</osm>
+"""
+
+
+def test_read_ways_drops_the_alleys_of_a_cemetery(tmp_path: Path) -> None:
+    path = tmp_path / "cemetery.osm"
+    path.write_text(CEMETERY_XML)
+    # 21 and 22 run inside the cemetery (open to pedestrians or not); 23 is outside.
+    assert [w.id for w in osm.read_ways(path)] == [23]
+    assert [a.osm_id for a in osm.iter_cemeteries(path)] == ["way/20"]
+
+
 def test_clip_osm_keeps_what_read_ways_needs(tmp_path: Path) -> None:
     src = tmp_path / "sample.osm"
     src.write_text(OSM_XML)

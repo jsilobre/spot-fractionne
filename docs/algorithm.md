@@ -61,6 +61,11 @@ telles. Une voie `MINOR` ou `PATH` dont plus de la moitié de la longueur
 clôture restent en dehors de la zone et sont conservées. Cette règle vaut pour
 tout le réseau : plats, côtes et boucles du réseau.
 
+De la même façon, une voie `MINOR` ou `PATH` dont plus de la moitié de la
+longueur (`osm.CEMETERY_MAX_INSIDE`) est dans un cimetière (`landuse=cemetery`
+ou `amenity=grave_yard`) est exclue, même ouverte aux piétons : on n'y fait pas
+de fractionné. Plats, côtes et boucles du réseau sont concernés.
+
 Les voies `MAJOR` sont conservées quels que soient leurs tags d'accès : même
 privée, une route importante reste une barrière.
 

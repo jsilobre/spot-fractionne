@@ -156,7 +156,14 @@
         </label>
 
         <label class="check" data-kind="flat climb long_climb"><input id="no-crossing" type="checkbox" /> Sans traversée de route</label>
-        <label class="check" data-kind="flat climb long_climb"><input id="paved-only" type="checkbox" /> Revêtement asphalte / béton</label>
+        <label class="field" for="surface" data-kind="flat climb long_climb">
+          <span>Revêtement</span>
+          <select id="surface">
+            <option value="any" selected>tous</option>
+            <option value="paved">asphalte, béton</option>
+            <option value="unpaved">non revêtu (stabilisé, gravier, terre)</option>
+          </select>
+        </label>
         <p class="hint" data-kind="loop" hidden>Pistes d'athlétisme, et boucles autour d'un parc, d'un lac ou d'un quartier sans voitures (200 m à 2 km), d'après OpenStreetMap.</p>
         <fieldset class="check-row" data-kind="loop" hidden>
           <legend class="sr-only">Types de boucles</legend>
@@ -183,6 +190,10 @@
             </select>
           </label>
         </div>
+        <p id="results-away" class="hint warning" hidden>
+          <span id="results-away-text"></span>
+          <button id="results-away-search" type="button" class="away-search">🔍 Rechercher dans la zone affichée</button>
+        </p>
         <ol id="results" class="result-list"></ol>
       </section>
 

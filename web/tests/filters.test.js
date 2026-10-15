@@ -62,12 +62,20 @@ test("flat criteria: kind, length, local grade, crossings, surface", () => {
   assert.equal(matches(feature({ length_m: 150 }).properties, c), false);
   assert.equal(matches(feature({ grade_max_pct: 2.5 }).properties, c), false);
   assert.equal(matches(feature({ n_crossings: 2 }).properties, { ...c, noCrossing: true }), false);
-  assert.equal(matches(feature({ surface: "gravel" }).properties, { ...c, pavedOnly: true }), false);
+  assert.equal(matches(feature({ surface: "gravel" }).properties, { ...c, surface: "paved" }), false);
+  assert.equal(matches(feature({ surface: "paved" }).properties, { ...c, surface: "paved" }), true);
+  for (const surface of ["compacted", "gravel", "unpaved"]) {
+    assert.equal(matches(feature({ surface }).properties, { ...c, surface: "unpaved" }), true, surface);
+  }
+  for (const surface of ["paved", "cobbles", "unknown"]) {
+    assert.equal(matches(feature({ surface }).properties, { ...c, surface: "unpaved" }), false, surface);
+    assert.equal(matches(feature({ surface }).properties, c), true, surface);
+  }
 });
 
 test("loop criteria: every track of the kind, or only public ones", () => {
   const loop = { kind: "loop", length_m: 199, access: "unknown", surface: "unknown" };
-  const loops = { ...DEFAULT_CRITERIA, kind: "loop", minLengthM: 400, pavedOnly: true };
+  const loops = { ...DEFAULT_CRITERIA, kind: "loop", minLengthM: 400, surface: "paved" };
   assert.equal(matches(loop, loops), true); // length and surface do not apply
   assert.equal(matches(loop, { ...loops, publicOnly: true }), false);
   assert.equal(matches({ ...loop, access: "public" }, { ...loops, publicOnly: true }), true);
@@ -248,7 +256,9 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { id: "a", kind: "flat", length_m: 400, grade_max_pct: 1.5, n_crossings: 0, surface: "paved" },
     { id: "b", kind: "flat", length_m: 150, grade_max_pct: 0.5, n_crossings: 0, surface: "paved" },
     { id: "c", kind: "flat", length_m: 900, grade_max_pct: 2.5, n_crossings: 2, surface: "gravel" },
+    { id: "c2", kind: "flat", length_m: 400, grade_max_pct: 1, n_crossings: 0, surface: "compacted" },
     { id: "d", kind: "climb", length_m: 300, grade_mean_pct: 2.97, n_crossings: 0, surface: "paved" },
+    { id: "d2", kind: "climb", length_m: 300, grade_mean_pct: 9, n_crossings: 0, surface: "unpaved" },
     { id: "e", kind: "climb", length_m: 300, grade_mean_pct: 8, n_crossings: 1, surface: "unknown" },
     { id: "e2", kind: "climb", length_m: 514, grade_mean_pct: 7.5, steep_100_pct: 13.5, steep_200_pct: 12.3, steep_400_pct: 8.7, n_crossings: 6, surface: "paved" },
     { id: "l1", kind: "long_climb", length_m: 1500, grade_mean_pct: 4.2, steep_100_pct: 6, steep_1000_pct: 4.6, n_crossings: 0, surface: "paved" },
@@ -264,12 +274,14 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     { ...DEFAULT_CRITERIA },
     { ...DEFAULT_CRITERIA, kind: "climb" },
     { ...DEFAULT_CRITERIA, kind: "loop" },
-    { ...DEFAULT_CRITERIA, kind: "loop", publicOnly: true, noCrossing: true, pavedOnly: true, minLengthM: 1000 },
+    { ...DEFAULT_CRITERIA, kind: "loop", publicOnly: true, noCrossing: true, surface: "paved", minLengthM: 1000 },
     { ...DEFAULT_CRITERIA, kind: "loop", loopTypes: ["track", "park"] },
     { ...DEFAULT_CRITERIA, kind: "loop", loopTypes: ["water"], publicOnly: true },
     { ...DEFAULT_CRITERIA, kind: "loop", loopTypes: [] },
     { ...DEFAULT_CRITERIA, kind: "loop", maxLoopGradePct: 2 },
-    { ...DEFAULT_CRITERIA, noCrossing: true, pavedOnly: true, maxLocalGradePct: 3, minLengthM: 100 },
+    { ...DEFAULT_CRITERIA, noCrossing: true, surface: "paved", maxLocalGradePct: 3, minLengthM: 100 },
+    { ...DEFAULT_CRITERIA, surface: "unpaved" },
+    { ...DEFAULT_CRITERIA, kind: "climb", surface: "unpaved", minMeanGradePct: 5 },
     { ...DEFAULT_CRITERIA, kind: "climb", minMeanGradePct: 5, maxMeanGradePct: 10 },
     { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 100, minMeanGradePct: 10 },
     { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 400, minMeanGradePct: 9 },
@@ -283,8 +295,8 @@ test("mapFilter selects exactly what matches selects, plus the pinned segment", 
     }
   }
   const climbs = { ...DEFAULT_CRITERIA, kind: "climb" };
-  assert.equal(evaluate(mapFilter(climbs), segments[3]), false);
-  assert.equal(evaluate(mapFilter(climbs, "d"), segments[3]), true);
+  assert.equal(evaluate(mapFilter(climbs), segments.find((s) => s.id === "d")), false);
+  assert.equal(evaluate(mapFilter(climbs, "d"), segments.find((s) => s.id === "d")), true);
   assert.equal(evaluate(overviewFilter(climbs), { kind: "climb", length_m: 300 }), true);
   assert.equal(evaluate(overviewFilter(climbs), { kind: "flat", length_m: 300 }), false);
 });

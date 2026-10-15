@@ -7,7 +7,7 @@ returns :class:`~flat_segments.network.Way` objects projected to Lambert-93.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, NamedTuple
 
@@ -113,6 +113,10 @@ USED_TAGS: Final = (
 )
 #: Share of a support way's length inside an aerodrome above which it is ignored.
 AERODROME_MAX_INSIDE: Final = 0.5
+#: Share of a support way's length inside a cemetery above which it is ignored.
+CEMETERY_MAX_INSIDE: Final = 0.5
+#: Tags of the cemetery areas.
+CEMETERY_TAGS: Final = (("landuse", "cemetery"), ("amenity", "grave_yard"))
 
 
 def classify_way(tags: Mapping[str, str]) -> RoadClass | None:
@@ -290,8 +294,9 @@ def read_ways(
     Returns:
         Ways in file order, including MAJOR roads (used as barriers), without
         the support ways lying mostly inside an aerodrome unless they are
-        open to pedestrians (``foot=yes``…). The aerodromes are read from the
-        same file: a file cut by :func:`clip_osm` has none.
+        open to pedestrians (``foot=yes``…), nor those lying mostly inside a
+        cemetery. These areas are read from the same file: a file cut by
+        :func:`clip_osm` has none.
     """
     from shapely.geometry import Polygon
 
@@ -304,12 +309,18 @@ def read_ways(
             ways.append(way)
             if raw.tags.get("foot") in FOOT_ALLOWED:
                 open_to_foot.append(way.id)
-    aerodromes = [
-        Polygon(project(ring), [project(hole)] if hole is not None else []).buffer(0)
-        for raw in iter_aerodromes(path, bbox, area)
-        for ring, hole in zip(raw.rings, raw.holes, strict=True)
-    ]
-    return drop_ways_inside(ways, aerodromes, AERODROME_MAX_INSIDE, keep=open_to_foot)
+
+    def polygons(areas: Iterable[RawArea]) -> list[BaseGeometry]:
+        return [
+            Polygon(project(ring), [project(hole)] if hole is not None else []).buffer(0)
+            for raw in areas
+            for ring, hole in zip(raw.rings, raw.holes, strict=True)
+        ]
+
+    aerodromes = polygons(iter_aerodromes(path, bbox, area))
+    ways = drop_ways_inside(ways, aerodromes, AERODROME_MAX_INSIDE, keep=open_to_foot)
+    # Even open to pedestrians, a cemetery is no place for intervals.
+    return drop_ways_inside(ways, polygons(iter_cemeteries(path, bbox, area)), CEMETERY_MAX_INSIDE)
 
 
 def iter_aerodromes(
@@ -325,6 +336,19 @@ def iter_aerodromes(
     for raw in _iter_areas(path, ("aeroway",), ("aeroway",), bbox, area):
         if raw.tags.get("aeroway") == "aerodrome":
             yield raw
+
+
+def iter_cemeteries(
+    path: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> Iterator[RawArea]:
+    """Stream the cemeteries (``landuse=cemetery``, ``amenity=grave_yard``).
+
+    Their alleys are often open to pedestrians, but running intervals there
+    is out of place. Arguments as :func:`iter_sport_areas`.
+    """
+    return _iter_areas(path, (), (), bbox, area, values=CEMETERY_TAGS)
 
 
 def len_of(ring: FloatArray) -> float:
@@ -408,8 +432,12 @@ def _iter_areas(
     kept_tags: tuple[str, ...],
     bbox: tuple[float, float, float, float] | None,
     area: BaseGeometry | None,
+    values: tuple[tuple[str, str], ...] = (),
 ) -> Iterator[RawArea]:
-    """Areas with one of ``keys``, with their ``kept_tags``."""
+    """Areas with one of ``keys``, with their ``kept_tags``.
+
+    With ``values``, areas with one of these ``(key, value)`` tags instead.
+    """
     import osmium
     import shapely
 
@@ -417,11 +445,15 @@ def _iter_areas(
         shapely.prepare(area)
         area_bbox = area.bounds
 
+    def wanted() -> osmium.filter.KeyFilter | osmium.filter.TagFilter:
+        # Filtering on values keeps osmium from assembling every area of a key.
+        return osmium.filter.TagFilter(*values) if values else osmium.filter.KeyFilter(*keys)
+
     processor = (
         osmium.FileProcessor(str(path))
-        .with_areas(osmium.filter.KeyFilter(*keys))
+        .with_areas(wanted())
         .with_filter(osmium.filter.EntityFilter(osmium.osm.AREA))
-        .with_filter(osmium.filter.KeyFilter(*keys))
+        .with_filter(wanted())
     )
     for obj in processor:
         if not isinstance(obj, osmium.osm.Area):
