@@ -608,10 +608,12 @@ input[type="range"] {
     bottom: 0;
     left: 0;
     max-width: none !important;
+    max-height: 50%; /* at least half of the map stays visible, details open or not */
   }
 
   .segment-popup .maplibregl-popup-content {
-    max-height: 40vh;
+    min-height: 0;
+    max-height: none;
     border-radius: 12px 12px 0 0;
     box-shadow: 0 -2px 8px rgb(0 0 0 / 20%);
   }

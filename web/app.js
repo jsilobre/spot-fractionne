@@ -702,7 +702,14 @@ function selectSegment(id, lngLat = null, feature = null) {
   popup
     .getElement()
     .querySelector(".popup-details")
-    ?.addEventListener("toggle", (event) => writeStored(DETAILS_KEY, event.target.open ? "open" : "closed"));
+    ?.addEventListener("toggle", (event) => {
+      writeStored(DETAILS_KEY, event.target.open ? "open" : "closed");
+      // The sheet changed height: keep the segment and its route above it.
+      if (SHEET_QUERY.matches && state.selectedFeature) {
+        const features = state.route?.coordinates ? [routeFeature(state.route), state.selectedFeature] : [state.selectedFeature];
+        map.fitBounds(featuresBounds(features), { padding: popupPadding(), maxZoom: 16 });
+      }
+    });
   renderRouteBox();
   if (!lngLat) {
     map.fitBounds(featuresBounds([selected]), { padding: popupPadding(), maxZoom: 16 });
