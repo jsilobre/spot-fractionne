@@ -41,7 +41,10 @@
   <body>
     <aside class="panel" aria-label="Recherche de segments">
       <header class="panel-header">
-        <h1>Spot Fractionné</h1>
+        <div class="title-row">
+          <h1>Spot Fractionné</h1>
+          <button id="about-button" class="about-button" type="button" aria-haspopup="dialog">À propos</button>
+        </div>
         <p class="tagline">Des tronçons plats et des côtes près de chez vous, pour vos séances.</p>
         <button id="install-button" class="install-button" type="button" hidden>Installer l'appli</button>
         <p id="install-ios" class="hint" hidden>
@@ -191,5 +194,98 @@
     </aside>
 
     <main id="map" aria-label="Carte"></main>
+
+    <dialog id="about" class="about" aria-labelledby="about-title">
+      <form method="dialog" class="about-close-form">
+        <button class="about-close" type="submit" aria-label="Fermer">✕</button>
+      </form>
+      <h2 id="about-title">À propos de Spot Fractionné</h2>
+      <p>
+        Spot Fractionné trouve, près de chez vous, les bouts de chemin adaptés à une séance de course :
+        une ligne droite plate de 400&nbsp;m sans traversée de route, une montée régulière à 6&nbsp;%, une boucle
+        autour d'un lac. On ne propose pas de parcours, mais des <strong>tronçons</strong> courts où
+        enchaîner les répétitions. Toute la France métropolitaine est couverte.
+      </p>
+
+      <h3>Les types de segments</h3>
+      <ul class="legend">
+        <li>
+          <span class="swatch flat" aria-hidden="true"></span>
+          <span><strong>Plats</strong> : tronçons droits et sans pente (pente locale ≤ 2&nbsp;%), pour le
+          fractionné et le travail d'allure sur 200&nbsp;m, 400&nbsp;m, 1&nbsp;km…</span>
+        </li>
+        <li>
+          <span class="swatch climb" aria-hidden="true"></span>
+          <span><strong>Côtes</strong> : montées régulières de 100&nbsp;m à 1&nbsp;km, pour les répétitions en côte.
+          La pente affichée est celle du passage le plus raide de la longueur choisie.</span>
+        </li>
+        <li>
+          <span class="swatch long_climb" aria-hidden="true"></span>
+          <span><strong>Côtes longues</strong> : montées d'1&nbsp;km et plus, courts replats tolérés, pour les
+          efforts de plusieurs minutes (4&nbsp;×&nbsp;6&nbsp;min, 2&nbsp;×&nbsp;10&nbsp;min…). Leur longueur se règle par une durée et
+          une allure.</span>
+        </li>
+        <li>
+          <span class="swatch loop" aria-hidden="true"></span>
+          <span><strong>Boucles</strong> : pistes d'athlétisme, et tours de parc, de lac ou de quartier sans
+          voitures (200&nbsp;m à 2&nbsp;km), pour enchaîner des tours sans demi-tour.</span>
+        </li>
+      </ul>
+
+      <h3>Sur la carte</h3>
+      <ul class="legend">
+        <li>
+          <span class="swatch pale" aria-hidden="true"></span>
+          <span>Trait pâle : segment qui répond aux critères mais hors du cercle de recherche.</span>
+        </li>
+        <li>
+          <span class="swatch circle" aria-hidden="true"></span>
+          <span>Pointillés gris : le cercle de recherche autour de votre position.</span>
+        </li>
+        <li>
+          <span class="swatch dot" aria-hidden="true"></span>
+          <span>Point rose : votre position. Les pointillés roses montrent l'itinéraire à pied jusqu'au
+          segment choisi.</span>
+        </li>
+      </ul>
+
+      <h3>Comment les segments sont trouvés</h3>
+      <p>
+        Les chemins et les rues viennent d'<a href="https://www.openstreetmap.org/">OpenStreetMap</a> ;
+        l'altitude, mesurée tous les quelques mètres, vient du relevé laser LiDAR HD de l'IGN. Un calcul
+        fait une fois pour toute la France repère les tronçons droits, plats ou en pente régulière, et
+        écarte les voies privées ou interdites aux piétons.
+      </p>
+      <p>
+        Chaque plat et chaque côte reçoit un <strong>score sur&nbsp;100</strong>, qui ne dépend pas de votre
+        position. Pour un plat, il tient compte surtout de la planéité, du nombre de routes à traverser et
+        de la rectitude ; pour une côte, de la régularité de la pente et des traversées. Le revêtement,
+        l'éclairage et la longueur comptent un peu. Les boucles n'ont pas de score : elles sont rangées par
+        distance.
+      </p>
+
+      <h3>À savoir</h3>
+      <p>
+        Les données d'OpenStreetMap peuvent être incomplètes ou fausses : vérifiez sur place que le
+        passage est ouvert et sûr. Beaucoup de pistes d'athlétisme sont réservées aux clubs.
+      </p>
+      <p>
+        Votre position reste dans votre navigateur : le site ne l'enregistre pas. L'adresse tapée et
+        l'itinéraire demandé passent par les services de l'IGN. Les visites sont comptées sans cookie
+        (<a href="https://www.goatcounter.com">GoatCounter</a>).
+      </p>
+
+      <h3>Crédits</h3>
+      <ul class="credits">
+        <li>Segments : © les contributeurs d'OpenStreetMap, base dérivée sous licence
+          <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>.</li>
+        <li>Altitudes, recherche d'adresse, itinéraire, Plan IGN et photos aériennes : Géoplateforme
+          <a href="https://geoservices.ign.fr/">IGN</a>, Licence Ouverte 2.0.</li>
+        <li>Fonds de carte : <a href="https://openfreemap.org/">OpenFreeMap</a>,
+          <a href="https://opentopomap.org/">OpenTopoMap</a> (CC-BY-SA), affichés avec MapLibre.</li>
+        <li>Code source libre (licence MIT) :
+          <a href="https://github.com/jsilobre/spot-fractionne">github.com/jsilobre/spot-fractionne</a>.</li>
+      </ul>
+    </dialog>
   </body>
 </html>
