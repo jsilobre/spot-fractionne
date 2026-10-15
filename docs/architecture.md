@@ -14,8 +14,8 @@ dans les [ADR](adr/README.md), et le détail des calculs dans
    et leurs attributs ([ADR 0001](adr/0001-pipeline-python-uv.md)).
 2. **Un front statique d'abord.** Le navigateur charge les segments
    précalculés et fait lui-même le filtrage (longueur, pente, distance,
-   traversées). Pas de serveur à maintenir : un hébergement GitHub Pages
-   suffit ([ADR 0005](adr/0005-front-statique-maplibre.md)).
+   traversées). Pas de serveur à maintenir : un hébergement de fichiers
+   statiques suffit ([ADR 0005](adr/0005-front-statique-maplibre.md)).
 3. **Des fichiers plutôt qu'une base.** Chaque étape du pipeline lit et écrit
    des fichiers (GeoParquet), ce qui les rend inspectables et rejouables
    séparément ([ADR 0004](adr/0004-stockage-geoparquet.md)). PostGIS
@@ -273,9 +273,11 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   listes `SHELL` et `CDN` de `sw.js` sont vérifiées par les tests contre
   `index.html` et la liste de copie de `pages.yml`.
 - **Publication** : le workflow `.github/workflows/pages.yml` déploie `web/`
-  (sans les tests) sur GitHub Pages à chaque modification sur `main`, avec
-  les données de la release `data-latest` quand elle existe
-  ([ADR 0011](adr/0011-production-github-actions.md)).
+  (sans les tests) à chaque modification sur `main`, avec le `segments.json`
+  publié sur R2 ([ADR 0013](adr/0013-donnees-sur-r2.md)) : sur Cloudflare,
+  à l'adresse `spot-fractionne.fr` (`wrangler.jsonc`), et sur GitHub Pages,
+  qui ne sert plus qu'une redirection des anciens liens une fois la variable
+  `SITE_URL` définie ([ADR 0017](adr/0017-hebergement-cloudflare.md)).
 
 ```mermaid
 sequenceDiagram
@@ -313,8 +315,9 @@ sequenceDiagram
     end
 ```
 
-Le site est hébergeable sur GitHub Pages tel quel (dossier `web/`), qui
-répond aux requêtes partielles.
+Le site est hébergeable tel quel (dossier `web/`) par tout hébergement
+statique qui répond aux requêtes partielles : GitHub Pages, puis Cloudflare
+([ADR 0017](adr/0017-hebergement-cloudflare.md)).
 
 ### 3.4 Future API (phase 3)
 
@@ -407,8 +410,8 @@ recalés à l'échelle régionale.
   le dépôt : il est dans la release `data-latest`
   ([ADR 0011](adr/0011-production-github-actions.md)).
 - **CI GitHub Actions** : lint, types, tests Python (3.12 et 3.13, avec
-  tippecanoe et osmium), tests JS ; déploiement GitHub Pages du front depuis
-  `main`.
+  tippecanoe et osmium), tests JS ; déploiement du front depuis `main`
+  (Cloudflare, redirection sur GitHub Pages).
 - **Production** : workflow `produce.yml`, lancé à la main
   ([ADR 0011](adr/0011-production-github-actions.md)).
 - **Réseau** : les téléchargements passent par une fonction d'ouverture d'URL

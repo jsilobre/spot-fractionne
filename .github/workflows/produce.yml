@@ -81,6 +81,7 @@ jobs:
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
       PAGES_ORIGIN: https://${{ github.repository_owner }}.github.io
+      SITE_URL: ${{ vars.SITE_URL }} # the site's own address, once it has one (ADR 0017)
     steps:
       - name: Check the R2 bucket (write, public partial read with CORS, delete)
         id: check
@@ -94,14 +95,18 @@ jobs:
           key="checks/run-$GITHUB_RUN_ID.txt"
           echo "flat-segments storage check, run $GITHUB_RUN_ID" > check.txt
           aws s3 cp check.txt "s3://$R2_BUCKET/$key" --only-show-errors
-          headers=$(curl -sS -D - -o /dev/null -H "Origin: $PAGES_ORIGIN" -H "Range: bytes=0-12" \
-            "$R2_PUBLIC_URL/$key" | tr -d '\r')
-          aws s3 rm "s3://$R2_BUCKET/$key" --only-show-errors
-          echo "$headers"
-          grep -q '^HTTP/[0-9.]* 206' <<< "$headers" \
-            || { echo "::error::$R2_PUBLIC_URL does not serve partial reads (206)"; exit 1; }
-          grep -qiE "^access-control-allow-origin: (\*|$PAGES_ORIGIN)" <<< "$headers" \
-            || { echo "::error::CORS: $R2_PUBLIC_URL does not allow $PAGES_ORIGIN"; exit 1; }
+          trap 'aws s3 rm "s3://$R2_BUCKET/$key" --only-show-errors' EXIT
+          origins=("$PAGES_ORIGIN")
+          [ -n "$SITE_URL" ] && origins+=("$(sed -E 's|^(https?://[^/]+).*|\1|' <<< "$SITE_URL")")
+          for origin in "${origins[@]}"; do
+            headers=$(curl -sS -D - -o /dev/null -H "Origin: $origin" -H "Range: bytes=0-12" \
+              "$R2_PUBLIC_URL/$key" | tr -d '\r')
+            echo "$headers"
+            grep -q '^HTTP/[0-9.]* 206' <<< "$headers" \
+              || { echo "::error::$R2_PUBLIC_URL does not serve partial reads (206)"; exit 1; }
+            grep -qiE "^access-control-allow-origin: (\*|$origin)" <<< "$headers" \
+              || { echo "::error::CORS: $R2_PUBLIC_URL does not allow $origin"; exit 1; }
+          done
           echo "r2=true" >> "$GITHUB_OUTPUT"
 
   prepare:

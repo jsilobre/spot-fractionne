@@ -1,0 +1,11 @@
+// Cloudflare deployment of the site (ADR 0017): static files only, no Worker
+// code. The Pages workflow assembles _site/ and runs `wrangler deploy`.
+{
+  "name": "spot-fractionne",
+  "compatibility_date": "2026-09-01",
+  "assets": { "directory": "./_site" },
+  // The site answers only on its own domain, not on *.workers.dev.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "spot-fractionne.fr", "custom_domain": true }]
+}
