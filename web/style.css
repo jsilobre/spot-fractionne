@@ -724,6 +724,15 @@ input[type="range"] {
     min-height: 52vh;
   }
 
+  /* A segment selected: the map takes most of the screen, the list shrinks. */
+  .segment-open .panel {
+    max-height: 25vh;
+  }
+
+  .segment-open #map {
+    min-height: 0;
+  }
+
   /* On phones the card becomes a sheet along the bottom of the map. */
   .maplibregl-popup.segment-popup {
     top: auto;
