@@ -46,12 +46,25 @@ import {
   profileSvg,
   RESOURCES,
 } from "./profile.js";
+import {
+  AUTHOR_MAX,
+  BODY_MAX,
+  commentHtml,
+  commentsTitle,
+  commentsUrl,
+  COMMENTS_API,
+  draftError,
+  reportUrl,
+  turnstileWidget,
+} from "./comments.js";
 
 // Published tileset, or the fictitious sample when there is none.
 const DATA_DIRS = ["data/", "data/sample/"];
 const BASEMAP_KEY = "basemap"; // localStorage key of the chosen basemap
 const DETAILS_KEY = "segment-details"; // localStorage key: "open" if the popup details were left open
 const PROFILE_KEY = "segment-profile"; // localStorage key: "open" if the elevation profile was left open
+const COMMENTS_KEY = "segment-comments"; // localStorage key: "open" if the comments were left open
+const AUTHOR_KEY = "comment-author"; // localStorage key: the pseudonym last used to comment
 // Narrow screens (same width as style.css): the popup is a sheet along the bottom of the map.
 const SHEET_QUERY = matchMedia("(max-width: 720px)");
 const FALLBACK_STYLE = {
@@ -119,6 +132,11 @@ const state = {
   // Elevation profiles by segment id: a profile (profile.js), "loading" or an error message.
   profiles: new Map(),
   profileScroll: false, // scroll the phone sheet to the profile once drawn
+  // Comments of the selected segment: {spotId, comments, sitekey}, "loading" or an error message.
+  comments: null,
+  commentsQuery: 0, // id of the latest comments request (older answers are ignored)
+  reported: new Set(), // comments reported from this page
+  turnstile: null, // Turnstile widget of the comment form
   pinnedId: null, // segment opened by a link: shown even if the filters exclude it
   placing: false, // the next click on the map sets the position
 };
@@ -205,6 +223,10 @@ function popupFrame(p, distanceM, detailsHtml) {
     <p class="popup-summary">${escapeHtml(summaryParts(p, distanceM).join(" · "))}</p>
     <div class="route-box"></div>
     ${profile}
+    <details class="popup-comments"${readStored(COMMENTS_KEY) === "open" ? " open" : ""}>
+      <summary>Commentaires</summary>
+      <div class="comments-box"></div>
+    </details>
     <details class="popup-details"${readStored(DETAILS_KEY) === "open" ? " open" : ""}>
       <summary>Détails${flagged}</summary>
       ${detailsHtml}
@@ -620,6 +642,7 @@ function clearSelection() {
   state.selectedId = null; // before popup.remove(), which fires "close"
   state.selectedFeature = null;
   clearRoute();
+  clearComments();
   setProfileCursor(null);
   if (id !== null && map.getSource("segments")) {
     map.setFeatureState({ source: "segments", sourceLayer: state.metadata.tiles.layer, id }, { selected: false });
@@ -780,8 +803,14 @@ function selectSegment(id, lngLat = null, feature = null) {
     }
     refitSheet();
   });
+  card.querySelector(".popup-comments").addEventListener("toggle", (event) => {
+    writeStored(COMMENTS_KEY, event.target.open ? "open" : "closed");
+    renderCommentsBox();
+    refitSheet();
+  });
   renderRouteBox();
   if (card.querySelector(".popup-profile")?.open) loadProfile();
+  loadComments(); // even folded: the title shows how many there are
   if (!lngLat) {
     map.fitBounds(featuresBounds([selected]), { padding: popupPadding(), maxZoom: 16 });
   } else {
@@ -1011,6 +1040,174 @@ function setProfileCursor(point) {
       ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: point } }] }
       : emptyCollection(),
   );
+}
+
+// --- comments on the selected segment (ADR 0019) -----------------------------------
+
+function clearComments() {
+  state.commentsQuery++; // a pending answer is dropped
+  state.comments = null;
+  state.turnstile?.remove();
+  state.turnstile = null;
+}
+
+/** Answer of the comments API: its JSON, or throws with the message to show. */
+async function commentsApi(url, init) {
+  const response = await fetch(url, init);
+  const type = response.headers.get("content-type") ?? "";
+  // Without the Worker (local server, sample data), /api/ is a missing file.
+  if (!type.includes("application/json")) throw new Error("Commentaires indisponibles ici.");
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error ?? "Erreur du serveur : réessayez plus tard.");
+  return body;
+}
+
+/** Fetch the comments of the selected segment, then show them. */
+async function loadComments() {
+  const spotId = state.selectedFeature?.properties.id;
+  if (!spotId) return;
+  const query = ++state.commentsQuery;
+  state.comments = "loading";
+  renderCommentsBox();
+  let result;
+  try {
+    const { comments, sitekey } = await commentsApi(commentsUrl(spotId));
+    result = { spotId, comments, sitekey };
+  } catch (error) {
+    console.warn("Comments unavailable", error);
+    result = error.message.startsWith("Commentaires") ? error.message : "Commentaires indisponibles (réseau).";
+  }
+  if (query !== state.commentsQuery) return; // another segment meanwhile
+  state.comments = result;
+  renderCommentsBox();
+}
+
+/** The comments part of the popup: count in the title, list and form when open. */
+function renderCommentsBox() {
+  const details = popup.getElement()?.querySelector(".popup-comments");
+  if (!details) return;
+  const data = state.comments;
+  details.querySelector("summary").textContent = commentsTitle(data?.comments?.length ?? 0);
+  const box = details.querySelector(".comments-box");
+  if (!details.open) {
+    box.innerHTML = "";
+    state.turnstile?.remove();
+    state.turnstile = null;
+    return;
+  }
+  if (data === "loading" || data === null) {
+    box.innerHTML = `<p class="hint">Chargement des commentaires…</p>`;
+    return;
+  }
+  if (typeof data === "string") {
+    box.innerHTML = `<p class="flags">${escapeHtml(data)}</p>`;
+    return;
+  }
+  if (box.querySelector(".comment-form")) return renderCommentList(); // keep the draft and the widget
+  box.innerHTML = `<ol class="comment-list"></ol>
+    <form class="comment-form">
+      <label>Pseudo <input name="author" maxlength="${AUTHOR_MAX}" autocomplete="nickname" required /></label>
+      <label>Votre commentaire
+        <textarea name="body" maxlength="${BODY_MAX}" rows="3" required
+          placeholder="Accès, état du sol, éclairage, fréquentation, point d'eau…"></textarea></label>
+      <div class="turnstile-box"></div>
+      <p class="comment-status hint" role="status"></p>
+      <button type="submit" class="comment-submit">Publier</button>
+      <p class="hint">Public et visible de tous. Évitez toute donnée personnelle ; un commentaire signalé plusieurs fois est masqué.</p>
+    </form>`;
+  renderCommentList();
+  const form = box.querySelector(".comment-form");
+  form.elements.author.value = readStored(AUTHOR_KEY) ?? "";
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    postComment(form);
+  });
+  box.querySelector(".comment-list").addEventListener("click", (event) => {
+    const button = event.target.closest(".comment-report");
+    if (button) reportComment(Number(button.dataset.id));
+  });
+  if (data.sitekey) {
+    const container = box.querySelector(".turnstile-box");
+    turnstileWidget(container, data.sitekey)
+      .then((widget) => {
+        // Kept only if the form is still there (not folded or another segment).
+        if (state.comments === data && container.isConnected) state.turnstile = widget;
+        else widget.remove();
+      })
+      .catch((error) => console.warn("Turnstile unavailable", error));
+  }
+}
+
+function renderCommentList() {
+  const list = popup.getElement()?.querySelector(".comment-list");
+  const data = state.comments;
+  if (!list || !data?.comments) return;
+  const now = new Date();
+  list.innerHTML = data.comments.length
+    ? data.comments.map((c) => commentHtml(c, now, state.reported.has(c.id))).join("")
+    : `<li class="hint">Pas encore de commentaire. Partagez un conseil aux autres coureurs.</li>`;
+}
+
+/** A Turnstile token, or throws with the message to show. */
+async function humanToken() {
+  if (!state.turnstile) throw new Error("Vérification anti-robot en cours de chargement : réessayez dans un instant.");
+  try {
+    return await state.turnstile.token();
+  } catch {
+    throw new Error("Vérification anti-robot échouée : réessayez.");
+  }
+}
+
+async function postComment(form) {
+  const data = state.comments;
+  const status = form.querySelector(".comment-status");
+  const author = form.elements.author.value.trim();
+  const body = form.elements.body.value.trim();
+  const error = draftError({ author, body });
+  if (error) {
+    status.textContent = error;
+    return;
+  }
+  writeStored(AUTHOR_KEY, author);
+  const button = form.querySelector(".comment-submit");
+  button.disabled = true;
+  status.textContent = "Envoi…";
+  try {
+    const token = await humanToken();
+    const { comment } = await commentsApi(COMMENTS_API, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ spot: data.spotId, author, body, token }),
+    });
+    if (state.comments === data) {
+      data.comments.unshift(comment);
+      form.elements.body.value = "";
+      status.textContent = "Merci, votre commentaire est publié.";
+      renderCommentsBox();
+    }
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function reportComment(id) {
+  if (!confirm("Signaler ce commentaire comme inapproprié ?")) return;
+  const status = popup.getElement()?.querySelector(".comment-status");
+  try {
+    const token = await humanToken();
+    await commentsApi(reportUrl(id), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    state.reported.add(id);
+    renderCommentList();
+    if (status) status.textContent = "Merci, le commentaire est signalé.";
+  } catch (error) {
+    if (status) status.textContent = error.message;
+  }
 }
 
 /**

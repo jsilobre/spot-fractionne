@@ -15,7 +15,9 @@ dans les [ADR](adr/README.md), et le détail des calculs dans
 2. **Un front statique d'abord.** Le navigateur charge les segments
    précalculés et fait lui-même le filtrage (longueur, pente, distance,
    traversées). Pas de serveur à maintenir : un hébergement de fichiers
-   statiques suffit ([ADR 0005](adr/0005-front-statique-maplibre.md)).
+   statiques suffit ([ADR 0005](adr/0005-front-statique-maplibre.md)). Seuls
+   les commentaires des visiteurs passent par un petit Worker Cloudflare et
+   une base D1 ([ADR 0019](adr/0019-commentaires-d1.md)).
 3. **Des fichiers plutôt qu'une base.** Chaque étape du pipeline lit et écrit
    des fichiers (GeoParquet), ce qui les rend inspectables et rejouables
    séparément ([ADR 0004](adr/0004-stockage-geoparquet.md)). PostGIS
@@ -220,6 +222,12 @@ Le GeoJSON destiné au web est écrit dans `web/data/`.
   à défaut), lissées et dessinées en SVG avec la pente par tranche ; le
   curseur sur le graphique place un point sur la carte (fonctions pures dans
   `profile.js`).
+- **Commentaires** ([ADR 0019](adr/0019-commentaires-d1.md)) : section
+  repliable « Commentaires (n) » de la fiche ; pseudo et texte, sans compte,
+  publiés aussitôt après la vérification anti-robot Turnstile ; bouton
+  « Signaler » (masqué après 3 signalements). L'API est le Worker
+  `worker/` (`/api/comments`, base Cloudflare D1) ; `moderation.html` sert à
+  masquer, valider ou supprimer (fonctions pures dans `comments.js`).
 - **Données en tuiles vectorielles** ([ADR 0009](adr/0009-pmtiles-tippecanoe.md),
   [étape 2.2](phase-2/2.2-tuiles.md)) : le fichier PMTiles à l'adresse donnée
   par `data/segments.json` (sur Cloudflare R2, [ADR 0013](adr/0013-donnees-sur-r2.md)),

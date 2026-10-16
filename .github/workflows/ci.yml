@@ -51,3 +51,6 @@ jobs:
       - name: Tests
         working-directory: web
         run: node --test
+      - name: Tests of the Worker
+        working-directory: worker
+        run: node --test

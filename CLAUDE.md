@@ -8,7 +8,7 @@ Spot Fractionné (site name; the Python package and CLI keep the name `flat-segm
 (200 m / 400 m / 1 km targets), regular climbs, long climbs (≥ 1 km, short flats tolerated) and
 loops (athletics tracks, park / lake / car-free block laps). An offline Python pipeline precomputes every
 segment for metropolitan France from OpenStreetMap + IGN elevation (LiDAR HD, RGE ALTI fallback);
-a static MapLibre page (`web/`, Cloudflare at spot-fractionne.fr; GitHub Pages redirects old links) filters them in the browser. No server, no database.
+a static MapLibre page (`web/`, Cloudflare at spot-fractionne.fr; GitHub Pages redirects old links) filters them in the browser. No server and no database, except a small Cloudflare Worker + D1 for visitor comments (`worker/`, ADR 0019).
 
 Language conventions: code, comments, docstrings and commit messages are in English; `docs/` and
 `README.md` are in French.
@@ -73,6 +73,8 @@ Read `docs/architecture.md` for the full component table; key ideas that span fi
   ≤ 10 km search circle), `geocode.js` (IGN geocoder) and `route.js` (IGN walking route to a segment's
   start, GPS app link). The result list is built from z12 tiles;
   the map's MapLibre filter expression must select exactly what `matches` selects.
+  `comments.js` + `moderation.html` talk to the comments API of the Worker
+  (`worker/comments.js`, routes under `/api/`; `cd worker && node --test`).
   `basemaps.js` / `coursestyle.js` hold the basemaps, `pwa.js` + `sw.js` + `manifest.webmanifest`
   make the site installable, `analytics.js` counts visits (GoatCounter, never the position).
 - **Gotcha, Pages deploy**: `pages.yml` copies site files one by one from an explicit list; any new

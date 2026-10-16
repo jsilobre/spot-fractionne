@@ -569,6 +569,103 @@ input[type="range"] {
   font-size: 12px;
 }
 
+/* Comments (ADR 0019; fixed light colors: the popup stays light in dark mode). */
+.popup-comments {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #d5dbe0;
+}
+
+.popup-comments summary {
+  font-size: 12px;
+  color: #1f6fb2;
+  cursor: pointer;
+}
+
+.comment-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.comment {
+  padding: 4px 0;
+  border-bottom: 1px solid #eef0f2;
+}
+
+.comment p {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.comment-meta {
+  color: #5b6670;
+}
+
+.comment-report,
+.comment-reported {
+  float: right;
+  font-size: 11px;
+  color: #5b6670;
+}
+
+.comment-report {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.comment-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.comment-form input,
+.comment-form textarea {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 5px;
+  border: 1px solid #c3cbd2;
+  border-radius: 4px;
+  background: #fff;
+  color: #222;
+}
+
+.comment-form textarea {
+  resize: vertical;
+}
+
+@media (max-width: 720px) {
+  /* Under 16 px, iOS zooms the page in when the field gets the focus. */
+  .comment-form input,
+  .comment-form textarea {
+    font-size: 16px;
+  }
+}
+
+.comment-form p {
+  margin: 0;
+}
+
+.comment-submit {
+  align-self: flex-start;
+  font-size: 12px;
+}
+
 /* Elevation profile (fixed light colors: the popup stays light in dark mode). */
 .popup-profile {
   margin-top: 6px;

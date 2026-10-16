@@ -25,6 +25,7 @@ ADR NNNN ». Les corrections mineures (précision, lien) se font sur place.
 | [0016](0016-itineraire-ign.md) | Itinéraire à pied jusqu'au départ d'un segment, avec le service de l'IGN | Acceptée |
 | [0017](0017-hebergement-cloudflare.md) | Site hébergé sur Cloudflare, à l'adresse spot-fractionne.fr | Proposée |
 | [0018](0018-profil-altimetrique-ign.md) | Profil altimétrique d'un segment, demandé au service d'altimétrie de l'IGN | Proposée |
+| [0019](0019-commentaires-d1.md) | Commentaires des visiteurs, stockés dans Cloudflare D1 | Proposée |
 
 ## Gabarit
 
