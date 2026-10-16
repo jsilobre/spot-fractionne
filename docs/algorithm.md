@@ -51,7 +51,10 @@ vraie (on doit pouvoir y courir en aller-retour) :
 - `access` ∈ {`private`, `no`, `agricultural`, `forestry`, `delivery`, `military`},
   sauf si `foot` ∈ {`yes`, `designated`, `permissive`} ;
 - `oneway:foot=yes` ;
-- un tag `aeroway` (voie de circulation d'aéroport tracée aussi en `highway`).
+- un tag `aeroway` (voie de circulation d'aéroport tracée aussi en `highway`) ;
+- un quai de gare, de métro ou de tram : `railway=platform`, ou
+  `public_transport=platform` avec `train`, `subway`, `light_rail`, `tram` ou
+  `monorail=yes`. Les quais de bus, souvent un bout de trottoir, restent.
 
 Les aéroports et aérodromes (zones `aeroway=aerodrome`) sont fermés au public,
 mais leurs routes de service, le long des pistes, sont rarement taguées comme

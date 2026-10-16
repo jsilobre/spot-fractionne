@@ -368,3 +368,75 @@ def summary_table(states: dict[str, dict[str, Any] | str]) -> str:
             f" | {steps.get('circuits', {}).get('circuits', '')} | {minutes:.1f} | ok |"
         )
     return "\n".join(lines) + "\n"
+
+
+#: Largest share of a run's ways missing from the OSM extract given to
+#: :func:`prune_department`: above it, the extract is not that run's.
+PRUNE_MAX_MISSING: Final = 0.01
+
+
+def prune_department(
+    code: str,
+    pbf: Path,
+    departments_file: Path,
+    root: Path,
+    *,
+    margin_m: float = BORDER_MARGIN_M,
+    log: Callable[[str], Any] = print,
+) -> dict[str, Any]:
+    """Drop the segments and circuits of a computed département on excluded ways.
+
+    For a fix that only removes ways (docs/architecture.md section 8). The
+    strokes, segments and circuits of ``<root>/<code>/`` must come from
+    a run on the same OSM extract ``pbf``. Strokes, profiles and running
+    tracks are left as they are.
+
+    Returns:
+        The ways, segments and circuits removed, also recorded under ``"pruned"`` in
+        ``state.json``.
+
+    Raises:
+        StateError: If the strokes use ways absent from ``pbf`` (another
+            extract than the run's).
+    """
+    from flat_segments.export import (
+        read_loops,
+        read_segments,
+        read_strokes,
+        write_loops,
+        write_segments,
+    )
+    from flat_segments.osm import highway_way_ids, read_ways
+    from flat_segments.prune import prune_circuits, prune_segments, removed_stretches
+
+    start = time.monotonic()
+    department = load_department(departments_file, code)
+    paths = department_paths(root / code)
+    state = _load_state(paths.state)
+    area_wgs84 = transform_geometry(department.work_area_l93(margin_m), WORK_CRS, WEB_CRS)
+    strokes = read_strokes(paths.strokes)
+    used = {part.way_id for stroke in strokes for part in stroke.parts}
+    missing = used - highway_way_ids(pbf)
+    if len(missing) > PRUNE_MAX_MISSING * max(len(used), 1):
+        raise StateError(
+            f"{code}: {len(missing)} of the {len(used)} ways of {paths.strokes} are not in {pbf}:"
+            " not the OSM extract of that run"
+        )
+    kept = {way.id for way in read_ways(pbf, area=area_wgs84)}
+    removed = used - kept
+    segments = read_segments(paths.segments)
+    kept_segments = prune_segments(segments, kept)
+    circuits = read_loops(paths.circuits)
+    kept_circuits = prune_circuits(circuits, removed_stretches(strokes, kept))
+    write_segments(kept_segments, paths.segments)
+    write_loops(kept_circuits, paths.circuits)
+    counts = {
+        "seconds": round(time.monotonic() - start, 1),
+        "ways_removed": len(removed),
+        "segments_removed": len(segments) - len(kept_segments),
+        "circuits_removed": len(circuits) - len(kept_circuits),
+    }
+    state["pruned"] = counts
+    _save_state(paths.state, state)
+    log(f"{code} prune: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+    return counts

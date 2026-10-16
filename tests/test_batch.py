@@ -268,3 +268,31 @@ def test_department_command_rejects_an_unknown_step(
     result = CliRunner().invoke(cli.app, ["department", "31", "--redo", "detect", *args])
     assert result.exit_code == 2
     assert "unknown steps: detect" in result.output
+
+
+def test_prune_drops_the_segments_on_ways_now_excluded(
+    inputs: tuple[Path, Path], tmp_path: Path
+) -> None:
+    pbf, outlines = inputs
+    run(inputs, tmp_path / "out", FakeWeb({download.WMS_URL: gentle_wms}))
+    paths = batch.department_paths(tmp_path / "out" / "31")
+    assert len(read_segments(paths.segments)) == 1
+    # Same extract, nothing excluded since: nothing goes.
+    counts = batch.prune_department("31", pbf, outlines, tmp_path / "out", log=lambda _: None)
+    assert (counts["ways_removed"], counts["segments_removed"]) == (0, 0)
+    # Way A is now tagged as a railway platform.
+    pbf.write_text(
+        osm_xml().replace('v="cycleway"/>', 'v="cycleway"/><tag k="railway" v="platform"/>', 1)
+    )
+    counts = batch.prune_department("31", pbf, outlines, tmp_path / "out", log=lambda _: None)
+    assert (counts["ways_removed"], counts["segments_removed"]) == (1, 1)
+    assert read_segments(paths.segments) == []
+    assert batch._load_state(paths.state)["pruned"] == counts
+
+
+def test_prune_refuses_another_extract(inputs: tuple[Path, Path], tmp_path: Path) -> None:
+    pbf, outlines = inputs
+    run(inputs, tmp_path / "out", FakeWeb({download.WMS_URL: gentle_wms}))
+    pbf.write_text(osm_xml().replace('<way id="1"', '<way id="9"'))
+    with pytest.raises(batch.StateError, match="not the OSM extract"):
+        batch.prune_department("31", pbf, outlines, tmp_path / "out", log=lambda _: None)
