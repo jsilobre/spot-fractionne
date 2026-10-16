@@ -51,7 +51,10 @@ vraie (on doit pouvoir y courir en aller-retour) :
 - `access` ∈ {`private`, `no`, `agricultural`, `forestry`, `delivery`, `military`},
   sauf si `foot` ∈ {`yes`, `designated`, `permissive`} ;
 - `oneway:foot=yes` ;
-- un tag `aeroway` (voie de circulation d'aéroport tracée aussi en `highway`).
+- un tag `aeroway` (voie de circulation d'aéroport tracée aussi en `highway`) ;
+- un quai de gare, de métro ou de tram : `railway=platform`, ou
+  `public_transport=platform` avec `train`, `subway`, `light_rail`, `tram` ou
+  `monorail=yes`. Les quais de bus, souvent un bout de trottoir, restent.
 
 Les aéroports et aérodromes (zones `aeroway=aerodrome`) sont fermés au public,
 mais leurs routes de service, le long des pistes, sont rarement taguées comme
@@ -65,6 +68,13 @@ De la même façon, une voie `MINOR` ou `PATH` dont plus de la moitié de la
 longueur (`osm.CEMETERY_MAX_INSIDE`) est dans un cimetière (`landuse=cemetery`
 ou `amenity=grave_yard`) est exclue, même ouverte aux piétons : on n'y fait pas
 de fractionné. Plats, côtes et boucles du réseau sont concernés.
+
+Les quais de gare sont surtout tracés en surfaces (`railway=platform`), avec un
+`highway=footway` sans autre tag le long du quai. Une voie `MINOR` ou `PATH`
+dont plus de la moitié de la longueur (`osm.PLATFORM_MAX_INSIDE`) est sur un
+quai de train, de tram ou de métro est donc exclue. Les quais souterrains
+(`layer` ou `level` négatif, `location=underground`, `tunnel`) ne comptent pas :
+la rue au-dessus d'un quai de métro reste.
 
 Les voies `MAJOR` sont conservées quels que soient leurs tags d'accès : même
 privée, une route importante reste une barrière.

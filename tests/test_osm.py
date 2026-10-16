@@ -25,6 +25,10 @@ from flat_segments.network import RoadClass
         ({"highway": "pedestrian", "area": "yes"}, None),
         ({"highway": "footway", "oneway:foot": "yes"}, None),
         ({"highway": "service", "aeroway": "taxiway"}, None),
+        ({"highway": "footway", "railway": "platform"}, None),
+        ({"highway": "footway", "public_transport": "platform", "train": "yes"}, None),
+        ({"highway": "footway", "public_transport": "platform", "tram": "yes"}, None),
+        ({"highway": "footway", "public_transport": "platform", "bus": "yes"}, RoadClass.PATH),
     ],
 )
 def test_classify_way(tags: dict[str, str], expected: RoadClass | None) -> None:
@@ -228,6 +232,30 @@ def test_read_ways_drops_the_alleys_of_a_cemetery(tmp_path: Path) -> None:
     # 21 and 22 run inside the cemetery (open to pedestrians or not); 23 is outside.
     assert [w.id for w in osm.read_ways(path)] == [23]
     assert [a.osm_id for a in osm.iter_cemeteries(path)] == ["way/20"]
+
+
+def platform_xml(*area_tags: str) -> str:
+    """CEMETERY_XML with its area 20 a platform tagged ``area_tags``."""
+    tags = "".join(f'<tag k="{k}" v="{v}"/>' for k, v in (t.split("=") for t in area_tags))
+    return CEMETERY_XML.replace('<tag k="landuse" v="cemetery"/>', tags)
+
+
+@pytest.mark.parametrize(
+    ("area_tags", "kept"),
+    [
+        (("railway=platform", "public_transport=platform"), [23]),
+        (("public_transport=platform", "train=yes"), [23]),
+        (("railway=platform", "layer=-2"), [21, 22, 23]),  # metro, below the street
+        (("railway=platform", "level=-1"), [21, 22, 23]),
+        (("public_transport=platform", "bus=yes"), [21, 22, 23]),
+    ],
+)
+def test_read_ways_drops_the_ways_on_a_railway_platform(
+    tmp_path: Path, area_tags: tuple[str, ...], kept: list[int]
+) -> None:
+    path = tmp_path / "platform.osm"
+    path.write_text(platform_xml(*area_tags))
+    assert [w.id for w in osm.read_ways(path)] == kept
 
 
 def test_clip_osm_keeps_what_read_ways_needs(tmp_path: Path) -> None:

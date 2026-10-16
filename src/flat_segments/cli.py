@@ -449,6 +449,23 @@ def department(
 
 
 @app.command()
+def prune(
+    code: Annotated[str, typer.Argument(help="INSEE code, e.g. 31.")],
+    pbf: RegionalPbf,
+    departments_file: DepartmentsFileOpt = DEPARTMENTS_FILE,
+    root: RootOpt = DEPARTMENTS_ROOT,
+) -> None:
+    """Drop the segments and circuits of a computed département on ways now excluded.
+
+    For a fix that only removes ways: no DEM, no detection (docs/architecture.md § 8).
+    The département folder must come from a run on the same OSM extract.
+    """
+    from flat_segments.batch import prune_department
+
+    prune_department(code, pbf, departments_file, root, log=typer.echo)
+
+
+@app.command()
 def departments(
     codes: Annotated[list[str], typer.Argument(help="INSEE codes, e.g. 09 12 31.")],
     pbf: RegionalPbf,

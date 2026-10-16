@@ -46,6 +46,8 @@ EXCLUDED_SERVICES: Final = frozenset(
 NO_FOOT: Final = frozenset({"no", "private", "use_sidepath"})
 NO_ACCESS: Final = frozenset({"private", "no", "agricultural", "forestry", "delivery", "military"})
 FOOT_ALLOWED: Final = frozenset({"yes", "designated", "permissive"})
+#: Rail modes of a ``public_transport=platform`` (bus platforms are kept).
+RAIL_MODES: Final = ("train", "subway", "light_rail", "tram", "monorail")
 
 SURFACE_CATEGORIES: Final[Mapping[str, str]] = {
     **dict.fromkeys(
@@ -110,6 +112,9 @@ USED_TAGS: Final = (
     "layer",
     "name",
     "aeroway",
+    "railway",
+    "public_transport",
+    *RAIL_MODES,
 )
 #: Share of a support way's length inside an aerodrome above which it is ignored.
 AERODROME_MAX_INSIDE: Final = 0.5
@@ -117,6 +122,10 @@ AERODROME_MAX_INSIDE: Final = 0.5
 CEMETERY_MAX_INSIDE: Final = 0.5
 #: Tags of the cemetery areas.
 CEMETERY_TAGS: Final = (("landuse", "cemetery"), ("amenity", "grave_yard"))
+#: Share of a support way's length on a railway platform above which it is ignored.
+PLATFORM_MAX_INSIDE: Final = 0.5
+#: Tags of the platform areas, those of a railway, metro or tram kept.
+PLATFORM_TAGS: Final = (("railway", "platform"), ("public_transport", "platform"))
 
 
 def classify_way(tags: Mapping[str, str]) -> RoadClass | None:
@@ -142,9 +151,39 @@ def classify_way(tags: Mapping[str, str]) -> RoadClass | None:
         or (tags.get("access") in NO_ACCESS and foot not in FOOT_ALLOWED)
         or tags.get("oneway:foot") == "yes"
         or "aeroway" in tags
+        or is_rail_platform(tags)
     ):
         return None
     return road_class
+
+
+def is_underground(tags: Mapping[str, str]) -> bool:
+    """Whether an object lies below ground (negative ``layer`` or ``level``...)."""
+
+    def below(key: str) -> bool:
+        try:
+            return float(tags.get(key, "0").split(";")[0]) < 0
+        except ValueError:
+            return False
+
+    return (
+        below("layer")
+        or below("level")
+        or tags.get("location") == "underground"
+        or tags.get("tunnel", "no") != "no"
+    )
+
+
+def is_rail_platform(tags: Mapping[str, str]) -> bool:
+    """Whether a way is a railway, metro or tram platform.
+
+    Bus platforms, often a stretch of sidewalk, are not: dropping them would
+    cut the sidewalk at every bus stop.
+    """
+    return tags.get("railway") == "platform" or (
+        tags.get("public_transport") == "platform"
+        and any(tags.get(mode) == "yes" for mode in RAIL_MODES)
+    )
 
 
 def structure_of(tags: Mapping[str, str]) -> str | None:
@@ -276,6 +315,18 @@ def iter_relevant_ways(
         yield RawWay(obj.id, tuple(n.ref for n in nodes), lonlat, tags)
 
 
+def highway_way_ids(path: Path) -> set[int]:
+    """Ids of all the ``highway=*`` ways of a file, kept or not."""
+    import osmium
+
+    processor = (
+        osmium.FileProcessor(str(path), osmium.osm.WAY)
+        .with_filter(osmium.filter.EntityFilter(osmium.osm.WAY))
+        .with_filter(osmium.filter.KeyFilter("highway"))
+    )
+    return {obj.id for obj in processor if isinstance(obj, osmium.osm.Way)}
+
+
 def read_ways(
     path: Path,
     bbox: tuple[float, float, float, float] | None = None,
@@ -295,7 +346,7 @@ def read_ways(
         Ways in file order, including MAJOR roads (used as barriers), without
         the support ways lying mostly inside an aerodrome unless they are
         open to pedestrians (``foot=yes``…), nor those lying mostly inside a
-        cemetery. These areas are read from the same file: a file cut by
+        cemetery or on a railway platform. These areas are read from the same file: a file cut by
         :func:`clip_osm` has none.
     """
     from shapely.geometry import Polygon
@@ -320,7 +371,10 @@ def read_ways(
     aerodromes = polygons(iter_aerodromes(path, bbox, area))
     ways = drop_ways_inside(ways, aerodromes, AERODROME_MAX_INSIDE, keep=open_to_foot)
     # Even open to pedestrians, a cemetery is no place for intervals.
-    return drop_ways_inside(ways, polygons(iter_cemeteries(path, bbox, area)), CEMETERY_MAX_INSIDE)
+    ways = drop_ways_inside(ways, polygons(iter_cemeteries(path, bbox, area)), CEMETERY_MAX_INSIDE)
+    # Platforms are mostly mapped as areas, with a footway drawn along them.
+    platforms = polygons(iter_rail_platforms(path, bbox, area))
+    return drop_ways_inside(ways, platforms, PLATFORM_MAX_INSIDE)
 
 
 def iter_aerodromes(
@@ -349,6 +403,22 @@ def iter_cemeteries(
     is out of place. Arguments as :func:`iter_sport_areas`.
     """
     return _iter_areas(path, (), (), bbox, area, values=CEMETERY_TAGS)
+
+
+def iter_rail_platforms(
+    path: Path,
+    bbox: tuple[float, float, float, float] | None = None,
+    area: BaseGeometry | None = None,
+) -> Iterator[RawArea]:
+    """Stream the platform areas of railway, metro and tram stations.
+
+    Underground ones (metro) are left out: the street above them stays.
+    Arguments as :func:`iter_sport_areas`.
+    """
+    kept = ("railway", "public_transport", *RAIL_MODES, "layer", "level", "location", "tunnel")
+    for raw in _iter_areas(path, (), kept, bbox, area, values=PLATFORM_TAGS):
+        if is_rail_platform(raw.tags) and not is_underground(raw.tags):
+            yield raw
 
 
 def len_of(ring: FloatArray) -> float:
