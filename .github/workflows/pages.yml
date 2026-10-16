@@ -1,7 +1,8 @@
 name: Pages
 
 # Publishes web/ (ADR 0017):
-# - on Cloudflare (Workers static assets, wrangler.jsonc) when the variable
+# - on Cloudflare (Workers static assets + the comments Worker, wrangler.jsonc,
+#   ADR 0019) when the variable
 #   CLOUDFLARE_ACCOUNT_ID and the secret CLOUDFLARE_API_TOKEN are set;
 # - on GitHub Pages: the whole site, or, once the variable SITE_URL names the
 #   site's own address, a page that redirects old links there (keeping ?id=).
@@ -11,6 +12,8 @@ on:
     branches: [main]
     paths:
       - "web/**"
+      - "worker/**"
+      - "wrangler.jsonc"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -34,10 +37,13 @@ jobs:
       - name: Tests
         working-directory: web
         run: node --test
+      - name: Tests of the Worker
+        working-directory: worker
+        run: node --test
       - name: Assemble the site (without tests)
         run: |
           mkdir -p _site
-          cp web/index.html web/app.js web/basemaps.js web/coursestyle.js web/filters.js web/geocode.js web/route.js web/profile.js web/tiles.js web/analytics.js web/pwa.js web/sw.js web/style.css web/manifest.webmanifest _site/
+          cp web/index.html web/app.js web/basemaps.js web/coursestyle.js web/filters.js web/geocode.js web/route.js web/profile.js web/comments.js web/moderation.html web/moderation.js web/tiles.js web/analytics.js web/pwa.js web/sw.js web/style.css web/manifest.webmanifest _site/
           cp -r web/vendor _site/vendor
           cp -r web/icons _site/icons
           cp -r web/data _site/data
@@ -88,6 +94,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - name: Comments database (D1 migrations not applied yet)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WRANGLER_SEND_METRICS: "false"
+        run: npx --yes wrangler@4.144.0 d1 migrations apply DB --remote
       - name: Deploy on Cloudflare
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
