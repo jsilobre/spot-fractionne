@@ -231,17 +231,11 @@ function loopPopupHtml(p, distanceM) {
   if (p.opening_hours) rows.push(["Horaires (OSM)", p.opening_hours]);
   rows.push(["Revêtement", SURFACE_LABELS[p.surface] ?? p.surface], ["Éclairage", LIT_LABELS[p.lit] ?? p.lit]);
   if (distanceM !== null && distanceM !== undefined) rows.push(["Distance", formatLength(distanceM)]);
-  const [type, osmId] = String(p.osm_id).split("#")[0].split("/");
-  const osmLink =
-    type && osmId
-      ? `<p class="hint">Objet OSM : <a href="https://www.openstreetmap.org/${escapeHtml(type)}/${escapeHtml(osmId)}" target="_blank" rel="noopener">${escapeHtml(osmId)}</a></p>`
-      : "";
   const link = buildUrlSearch({ id: p.id, kind: "loop" }) || "?";
   return popupFrame(
     p,
     distanceM,
     `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
-    ${osmLink}
     <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers cette ${circuit ? "boucle" : "piste"}</a></p>`,
   );
 }
