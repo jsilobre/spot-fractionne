@@ -69,6 +69,13 @@ longueur (`osm.CEMETERY_MAX_INSIDE`) est dans un cimetière (`landuse=cemetery`
 ou `amenity=grave_yard`) est exclue, même ouverte aux piétons : on n'y fait pas
 de fractionné. Plats, côtes et boucles du réseau sont concernés.
 
+Les quais de gare sont surtout tracés en surfaces (`railway=platform`), avec un
+`highway=footway` sans autre tag le long du quai. Une voie `MINOR` ou `PATH`
+dont plus de la moitié de la longueur (`osm.PLATFORM_MAX_INSIDE`) est sur un
+quai de train, de tram ou de métro est donc exclue. Les quais souterrains
+(`layer` ou `level` négatif, `location=underground`, `tunnel`) ne comptent pas :
+la rue au-dessus d'un quai de métro reste.
+
 Les voies `MAJOR` sont conservées quels que soient leurs tags d'accès : même
 privée, une route importante reste une barrière.
 
