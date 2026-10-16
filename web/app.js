@@ -273,17 +273,12 @@ function popupHtml(properties, distanceM) {
   ];
   if (distanceM !== null && distanceM !== undefined) rows.push(["Distance", formatLength(distanceM)]);
   const flags = p.quality_flags.map((f) => FLAG_LABELS[f] ?? f);
-  const osmLinks = p.osm_way_ids
-    .slice(0, 5)
-    .map((id) => `<a href="https://www.openstreetmap.org/way/${id}" target="_blank" rel="noopener">${id}</a>`)
-    .join(", ");
   const link = buildUrlSearch({ id: p.id }) || "?";
   return popupFrame(
     p,
     distanceM,
     `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>
     ${flags.length ? `<p class="flags">⚠ ${escapeHtml(flags.join(" ; "))}</p>` : ""}
-    ${p.elevation_source !== "synthetic" && osmLinks ? `<p class="hint">Voies OSM : ${osmLinks}</p>` : ""}
     <p class="hint"><a href="${escapeHtml(link)}">Lien direct vers ce segment</a></p>`,
   );
 }
