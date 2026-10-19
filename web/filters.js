@@ -235,12 +235,19 @@ export function filterSegments(features, criteria, position = null, pinnedId = n
   return results;
 }
 
+/**
+ * Sort results in place by "distance" (nearest first), "score" (best first)
+ * or "gain" (biggest elevation gain first, for climbs).
+ */
 export function sortResults(results, sortBy) {
   // Loops have no score (all tracks are equal): they count as 0.
   const score = (r) => r.feature.properties.score ?? 0;
+  const gain = (r) => r.feature.properties.elev_gain_m ?? 0;
   const byScore = (a, b) => score(b) - score(a);
+  const byGain = (a, b) => gain(b) - gain(a);
   const byDistance = (a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity);
   if (sortBy === "distance") return results.sort((a, b) => byDistance(a, b) || byScore(a, b));
+  if (sortBy === "gain") return results.sort((a, b) => byGain(a, b) || byDistance(a, b));
   return results.sort((a, b) => byScore(a, b) || byDistance(a, b));
 }
 

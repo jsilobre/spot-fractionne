@@ -711,6 +711,7 @@ function summaryParts(p, distanceM) {
     meta = [
       formatLength(p.length_m),
       grade,
+      ...(p.kind === "flat" ? [] : [`D+ ${fmt(p.elev_gain_m)} m`]),
       crossings(p.n_crossings),
       `score ${fmt(p.score)}`,
     ];
@@ -1274,6 +1275,10 @@ function readControls() {
   c.surface = $("surface").value;
   c.publicOnly = $("public-only").checked;
   c.loopTypes = [...document.querySelectorAll('input[name="loop-type"]:checked')].map((e) => e.value);
+  // The D+ sort only exists for climbs: other kinds fall back to distance.
+  if ($("sort-by").value === "gain" && c.kind !== "climb" && c.kind !== "long_climb") {
+    $("sort-by").value = "distance";
+  }
   state.sortBy = $("sort-by").value;
 
   $("max-local-grade-value").textContent = `${fmt(c.maxLocalGradePct, 1)} %`;
@@ -1283,6 +1288,7 @@ function readControls() {
   $("max-distance-value").textContent = `${fmt(c.maxDistanceM / 1000, 1)} km`;
   for (const element of document.querySelectorAll("[data-kind]")) {
     element.hidden = !element.dataset.kind.split(" ").includes(c.kind);
+    if (element.tagName === "OPTION") element.disabled = element.hidden; // Safari ignores hidden options
   }
 }
 

@@ -121,6 +121,15 @@ test("loops have no score: sorting by score keeps them last, nearest first", () 
   );
 });
 
+test("gain sort puts the biggest elevation gain first, then the nearest", () => {
+  const climb = (gain, d) => ({ feature: feature({ kind: "climb", elev_gain_m: gain }), distanceM: d });
+  const results = [climb(12, 100), climb(40, 900), climb(25, 300), climb(40, 500)];
+  assert.deepEqual(
+    sortResults(results, "gain").map((r) => [r.feature.properties.elev_gain_m, r.distanceM]),
+    [[40, 500], [40, 900], [25, 300], [12, 100]],
+  );
+});
+
 test("climb criteria use the mean grade range", () => {
   const c = { ...DEFAULT_CRITERIA, kind: "climb", minLengthM: 100, minMeanGradePct: 5, maxMeanGradePct: 8 };
   assert.equal(matches(feature({ kind: "climb", grade_mean_pct: 6 }).properties, c), true);
