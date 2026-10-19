@@ -1,9 +1,27 @@
-// Cloudflare deployment of the site (ADR 0017): static files only, no Worker
-// code. The Pages workflow assembles _site/ and runs `wrangler deploy`.
+// Cloudflare deployment of the site (ADR 0017): the static files, plus a small
+// Worker for the comments API under /api/ (worker/index.js, D1, ADR 0019).
+// The Pages workflow assembles _site/, applies the D1 migrations and runs
+// `wrangler deploy`. Secrets, from the GitHub secrets TURNSTILE_SECRET and
+// COMMENTS_ADMIN_TOKEN (uploaded by the workflow): TURNSTILE_SECRET, ADMIN_TOKEN.
 {
   "name": "spot-fractionne",
+  "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
-  "assets": { "directory": "./_site" },
+  // Files are served first; the Worker answers only what no file matches (/api/).
+  "assets": { "directory": "./_site", "binding": "ASSETS" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "spot-fractionne-commentaires",
+      "database_id": "085294b2-12b9-4e93-9e4e-12e957ec81c1",
+      "migrations_dir": "worker/migrations"
+    }
+  ],
+  // Writes (comments, reports) per IP address and per minute. The address is
+  // only used as a counter key by Cloudflare, never stored.
+  "ratelimits": [{ "name": "WRITE_LIMIT", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }],
+  // Turnstile (anti-robot check) public site key; the secret key is TURNSTILE_SECRET.
+  "vars": { "TURNSTILE_SITEKEY": "0x4AAAAAAFbPO9MSg01g9iMx" },
   // The site answers only on its own domain, not on *.workers.dev.
   "workers_dev": false,
   "preview_urls": false,

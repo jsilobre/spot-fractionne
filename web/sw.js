@@ -5,7 +5,7 @@
 // - Page files: network first, so a deploy shows up at once; the cached copy
 //   is used offline.
 // - Pinned CDN libraries: cache first, their versioned URLs never change.
-// - Everything else (segments, tiles, basemaps, geocoder, routes, analytics): not
+// - Everything else (segments, tiles, comments, basemaps, geocoder, routes, analytics): not
 //   touched, always from the network.
 
 const CACHE = "spot-fractionne-v1";
@@ -23,6 +23,7 @@ const SHELL = [
   "pwa.js",
   "route.js",
   "profile.js",
+  "comments.js",
   "tiles.js",
   "vendor/goatcounter-count.js",
   "manifest.webmanifest",
@@ -51,6 +52,8 @@ function requestStrategy(method, url, hasRange, scope) {
   if (target.origin !== base.origin || !target.pathname.startsWith(base.pathname)) return null;
   // Published data changes with each run and can be large: never cached.
   if (target.pathname.startsWith(`${base.pathname}data/`)) return null;
+  // Comments (Worker API): always fresh, never from the cache.
+  if (target.pathname.startsWith(`${base.pathname}api/`)) return null;
   return "network-first";
 }
 

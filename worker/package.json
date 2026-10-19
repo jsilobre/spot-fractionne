@@ -1,0 +1,9 @@
+{
+  "name": "spot-fractionne-worker",
+  "private": true,
+  "description": "Cloudflare Worker of the site: comments API (ADR 0019). No dependencies; package.json only runs the tests.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -71,6 +71,7 @@ test("requestStrategy leaves data, tiles and other requests to the network", () 
   const { requestStrategy } = loadServiceWorker();
   assert.equal(requestStrategy("GET", `${PAGE_ORIGIN}/data/segments.json`, false, SCOPE), null);
   assert.equal(requestStrategy("GET", `${PAGE_ORIGIN}/data/segments.pmtiles`, true, SCOPE), null);
+  assert.equal(requestStrategy("GET", `${PAGE_ORIGIN}/api/comments?spot=flat-0123456789ab`, false, SCOPE), null);
   assert.equal(requestStrategy("GET", "https://data.example.r2.dev/segments.pmtiles", true, SCOPE), null);
   assert.equal(requestStrategy("GET", "https://tiles.openfreemap.org/styles/liberty", false, SCOPE), null);
   assert.equal(requestStrategy("GET", "https://jsilobre.github.io/other/", false, SCOPE), null);

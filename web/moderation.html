@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Modération des commentaires · Spot Fractionné</title>
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <style>
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        font: 14px/1.4 system-ui, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 16px;
+        color: #222;
+        background: #fff;
+      }
+      form,
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      nav button[aria-pressed="true"] {
+        font-weight: bold;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 6px 4px;
+        border-bottom: 1px solid #dde2e6;
+      }
+      td.body {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      tr.hidden td {
+        color: #8a949c;
+      }
+      td.actions button {
+        display: block;
+        margin-bottom: 4px;
+      }
+      #status {
+        color: #6b4a00;
+      }
+    </style>
+    <script type="module" src="moderation.js"></script>
+  </head>
+  <body>
+    <h1>Modération des commentaires</h1>
+    <form id="login" hidden>
+      <label>Mot de passe (secret ADMIN_TOKEN du Worker) <input id="password" type="password" autocomplete="current-password" /></label>
+      <button type="submit">Entrer</button>
+    </form>
+    <nav id="views" hidden>
+      <button type="button" data-view="reported">Signalés</button>
+      <button type="button" data-view="recent">Récents</button>
+      <button type="button" data-view="hidden">Masqués</button>
+      <button type="button" id="logout">Se déconnecter</button>
+    </nav>
+    <p id="status" role="status"></p>
+    <table id="table" hidden>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Spot</th>
+          <th>Pseudo</th>
+          <th>Commentaire</th>
+          <th>État</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </body>
+</html>
