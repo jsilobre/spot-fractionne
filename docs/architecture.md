@@ -318,7 +318,7 @@ sequenceDiagram
     B->>S: tuiles z12 couvrant le cercle de recherche (plages d'octets)
     B->>T: decodeTile, segmentsFromTiles, filterSegments
     T-->>B: segments retenus + distance
-    B->>B: liste triée (distance ou score)
+    B->>B: liste triée (distance, score ou D+ pour les côtes)
     B->>B: filtre de la carte (critères + identifiants de la liste), cercle
     U->>B: clic sur un segment
     B->>U: popup (longueur, pente, revêtement, traversées…)
