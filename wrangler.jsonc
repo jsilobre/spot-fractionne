@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "spot-fractionne-commentaires",
-      "database_id": "__D1_DATABASE_ID__",
+      "database_id": "085294b2-12b9-4e93-9e4e-12e957ec81c1",
       "migrations_dir": "worker/migrations"
     }
   ],
