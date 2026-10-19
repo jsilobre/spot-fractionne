@@ -799,6 +799,30 @@ input[type="range"] {
   display: none;
 }
 
+/* MapLibre paints the popup white whatever the color scheme: in dark mode the
+   card keeps the light palette, or the text it inherits would be light on white. */
+.segment-popup {
+  --bg: #ffffff;
+  --bg-soft: #f3f5f7;
+  --fg: #1d2329;
+  --fg-muted: #5b6670;
+  --border: #d5dbe0;
+  --accent: #1f6fb2;
+  --warning-bg: #fff4d6;
+  --warning-fg: #6b4a00;
+  --error-bg: #fde3e1;
+  --error-fg: #8a1c12;
+  color-scheme: light;
+}
+
+.segment-popup .maplibregl-popup-content {
+  color: var(--fg);
+}
+
+.segment-popup a {
+  color: var(--accent);
+}
+
 .segment-popup .maplibregl-popup-content {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
