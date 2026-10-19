@@ -1,8 +1,8 @@
 // Cloudflare deployment of the site (ADR 0017): the static files, plus a small
 // Worker for the comments API under /api/ (worker/index.js, D1, ADR 0019).
 // The Pages workflow assembles _site/, applies the D1 migrations and runs
-// `wrangler deploy`. Secrets set in the Cloudflare dashboard, not here:
-// TURNSTILE_SECRET, ADMIN_TOKEN.
+// `wrangler deploy`. Secrets, from the GitHub secrets TURNSTILE_SECRET and
+// COMMENTS_ADMIN_TOKEN (uploaded by the workflow): TURNSTILE_SECRET, ADMIN_TOKEN.
 {
   "name": "spot-fractionne",
   "main": "worker/index.js",

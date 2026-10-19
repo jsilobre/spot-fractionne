@@ -105,7 +105,16 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           WRANGLER_SEND_METRICS: "false"
-        run: npx --yes wrangler@4.144.0 deploy
+          # Worker secrets of the comments API (ADR 0019), kept as GitHub
+          # secrets and uploaded with each deploy. An empty one is left out:
+          # the value already on Cloudflare stays.
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.COMMENTS_ADMIN_TOKEN }}
+        run: |
+          secrets="$RUNNER_TEMP/worker-secrets.json"
+          jq -n 'env | {TURNSTILE_SECRET, ADMIN_TOKEN} | with_entries(select(.value != null and .value != ""))' > "$secrets"
+          npx --yes wrangler@4.144.0 deploy --secrets-file "$secrets"
+          rm -f "$secrets"
 
   deploy:
     needs: build

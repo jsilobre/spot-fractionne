@@ -30,7 +30,8 @@ de compte GitHub.
   - anti-robot **Cloudflare Turnstile** (invisible le plus souvent) pour
     publier et pour signaler ; clé publique dans `wrangler.jsonc`
     (`TURNSTILE_SITEKEY`), clé secrète en secret du Worker
-    (`TURNSTILE_SECRET`) ;
+    (`TURNSTILE_SECRET`), envoyée au déploiement depuis le secret GitHub du
+    même nom ;
   - au plus 5 envois par minute et par adresse IP (limiteur de débit de
     Cloudflare : l'adresse sert de clé de compteur, elle n'est pas gardée) ;
   - pseudo de 40 caractères, texte de 3 à 1 000 caractères, au plus deux
@@ -38,7 +39,8 @@ de compte GitHub.
   - bouton « Signaler » : un commentaire signalé 3 fois est masqué ;
   - page `moderation.html` (non indexée) pour voir les commentaires récents,
     signalés ou masqués, et les masquer, valider ou supprimer ; elle
-    s'ouvre avec le secret du Worker `ADMIN_TOKEN`. Un commentaire validé
+    s'ouvre avec le secret du Worker `ADMIN_TOKEN` (secret GitHub
+    `COMMENTS_ADMIN_TOKEN`). Un commentaire validé
     n'est plus masqué par les signalements.
 - Dans la fiche du spot, une section repliable « Commentaires (n) » : la
   liste est chargée à chaque sélection (le titre montre le nombre), le
@@ -68,7 +70,9 @@ de compte GitHub.
 - Mise en place côté Cloudflare, une fois : créer la base D1 et reporter son
   identifiant dans `wrangler.jsonc`, ajouter la permission *D1 : Edit* au
   jeton d'API du workflow, créer le widget Turnstile, définir les secrets
-  `TURNSTILE_SECRET` et `ADMIN_TOKEN` du Worker.
+  GitHub `TURNSTILE_SECRET` et `COMMENTS_ADMIN_TOKEN` (le workflow les envoie
+  au Worker à chaque déploiement ; Cloudflare refuse les secrets sur un
+  Worker qui n'a encore que des fichiers statiques).
 
 ## Alternatives considérées
 
